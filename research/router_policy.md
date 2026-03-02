@@ -1,0 +1,64 @@
+# Router Policy (Canonical)
+
+## Inputs
+- `package`: free | pro | premium
+- `mode`: strict | readable
+- `doc_meta`: pages, size_mb, lang_pair
+- `runtime`: timeout_count, rate_limit_count, provider_error_code
+- `cost`: estimated_units, spent_units, remaining_units
+
+## Provider Tiers
+- `economy`: düsük maliyet, orta kalite
+- `standard`: dengeli kalite/maliyet
+- `premium`: en yüksek kalite, yüksek maliyet
+
+## Package Rules
+- free: default=economy, max_cost_tier=standard, max_escalations=1, strict=deny
+- pro: default=standard, max_cost_tier=premium, max_escalations=2, strict=allow
+- premium: default=premium, max_cost_tier=premium, max_escalations=3, strict=allow
+
+## Routing Algorithm (Deterministic)
+1. Admission check:
+- `pages/size_mb` paket limitlerini asiyorsa `INPUT_LIMIT_EXCEEDED`.
+- `worst_case_units > remaining_units` ise `COST_GUARD_BLOCK`.
+2. Initial provider tier:
+- mode=strict ise `default tier` korunur, auto-downgrade kapali.
+- mode=readable ise maliyet baskisinda downgrade izinli.
+3. Runtime failure handling:
+- `RATE_LIMIT`, `TIMEOUT`, `UPSTREAM_5XX` -> ayni tier içinde 1 retry.
+- Retry fail ise escalation/downgrade karari paket kuralina göre verilir.
+4. Escalation constraints:
+- `escalation_count >= max_escalations` ise yeni escalation yasak.
+- `next_tier > max_cost_tier` ise escalation yasak.
+5. Budget protection:
+- `spent_units + next_step_estimate > remaining_units` ise escalation yasak.
+- Uygun alt tier varsa downgrade; yoksa `COST_LIMIT_STOP`.
+6. Provider outage fallback:
+- Saglayici hard-down ise izinli siraya göre bir sonraki tier/provider denenir.
+- Failover sonrasi toplam maliyet her adimda yeniden dogrulanir.
+
+## Ordered Fallback Chains
+- free: economy -> standard
+- pro: standard -> premium -> economy
+- premium: premium -> standard -> economy
+
+## Error Code Contract
+- `INPUT_LIMIT_EXCEEDED`
+- `COST_GUARD_BLOCK`
+- `COST_LIMIT_STOP`
+- `ROUTER_MAX_ESCALATION_REACHED`
+- `ROUTER_NO_FALLBACK_PATH`
+- `PROVIDER_RATE_LIMIT`
+- `PROVIDER_TIMEOUT`
+- `PROVIDER_UPSTREAM_5XX`
+
+## Why This Policy
+- Basitlik: tek giris denetimi + deterministik fallback zinciri.
+- Maliyet kontrolü: her adimda budget check zorunlu.
+- iOS-first: kullaniciya anlasilir durum kodlari döner; polling ekrani state yönetebilir.
+
+## Evidence
+- Provider abstraction prensibi: `D:/dev/proje/Deepl/docs/PROVIDER_ARCHITECTURE.md`
+- Job/billing determinism: `D:/dev/proje/Deepl/backend/src/jobs/job.runner.ts`
+- Fallback pratigi (prototip): `D:/dev/proje/LinguaVision/sources/ProCeviriAI/app.py:343-427`
+- Cache + multi-service yaklasimi: `D:/dev/proje/LinguaVision/sources/PDFMathTranslate/docs/ADVANCED.md:59-69`, `...:265-270`
