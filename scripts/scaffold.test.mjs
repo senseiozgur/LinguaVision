@@ -122,6 +122,9 @@ const hasErrorNormalizationWiring =
   jobsRoute.includes("normalizeProviderError") &&
   jobsRoute.includes("KNOWN_PROVIDER_ERRORS") &&
   jobsRoute.includes("simulate_fail_code");
+const hasRetryPolicySimulationWiring =
+  jobsRoute.includes("simulate_retry_once_tiers") &&
+  jobsRoute.includes("for (let attempt = 1; attempt <= 2; attempt++)");
 
 notes.push(`${hasAdmissionGuard ? "PASS" : "FAIL"} admission guard wiring`);
 notes.push(`${hasRuntimeGuard ? "PASS" : "FAIL"} runtime guard wiring`);
@@ -134,6 +137,7 @@ notes.push(`${hasEventsEndpoint ? "PASS" : "FAIL"} jobs events endpoint contract
 notes.push(`${hasAsyncToggleWiring ? "PASS" : "FAIL"} async queue simulation wiring`);
 notes.push(`${hasQueueWorkerWiring ? "PASS" : "FAIL"} queue worker adapter wiring`);
 notes.push(`${hasErrorNormalizationWiring ? "PASS" : "FAIL"} provider error normalization wiring`);
+notes.push(`${hasRetryPolicySimulationWiring ? "PASS" : "FAIL"} retry policy simulation wiring`);
 if (
   !hasAdmissionGuard ||
   !hasRuntimeGuard ||
@@ -145,7 +149,8 @@ if (
   !hasEventsEndpoint ||
   !hasAsyncToggleWiring ||
   !hasQueueWorkerWiring ||
-  !hasErrorNormalizationWiring
+  !hasErrorNormalizationWiring ||
+  !hasRetryPolicySimulationWiring
 ) {
   pass = false;
 }

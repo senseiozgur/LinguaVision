@@ -27,6 +27,7 @@ export function createJobsRouter(deps) {
     simulateFailTier,
     simulateFailTiers,
     simulateFailCode,
+    simulateRetryOnceTiers,
     workerDelayMs
   }) {
     const job = deps.jobs.get(jobId);
@@ -55,19 +56,24 @@ export function createJobsRouter(deps) {
         continue;
       }
 
-      const translated = await deps.providerAdapter.translateDocument({
-        inputBuffer: inBytes,
-        tier,
-        mode: route.mode,
-        simulateFailTier,
-        simulateFailTiers,
-        simulateFailCode
-      });
+      let translated = null;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        translated = await deps.providerAdapter.translateDocument({
+          inputBuffer: inBytes,
+          tier,
+          mode: route.mode,
+          simulateFailTier,
+          simulateFailTiers,
+          simulateFailCode,
+          simulateRetryOnceTiers,
+          jobId: job.id
+        });
 
-      if (!translated.ok) {
+        if (translated.ok) break;
         lastError = normalizeProviderError(translated.error);
-        continue;
       }
+
+      if (!translated || !translated.ok) continue;
 
       const outPath = await deps.storage.saveOutput(job.id, translated.outputBuffer);
       deps.jobs.update(job.id, {
@@ -141,6 +147,11 @@ export function createJobsRouter(deps) {
       .map((s) => s.trim())
       .filter(Boolean);
     const simulateFailCode = (req.query?.simulate_fail_code || "").toString().trim() || "PROVIDER_TIMEOUT";
+    const simulateRetryOnceTiers = (req.query?.simulate_retry_once_tiers || "")
+      .toString()
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
     const workerDelayMs = Math.max(0, Number(req.query?.worker_delay_ms || 0));
     const asyncMode = req.query?.async === "1";
 
@@ -153,15 +164,30 @@ export function createJobsRouter(deps) {
           simulateFailTier,
           simulateFailTiers,
           simulateFailCode,
+          simulateRetryOnceTiers,
           workerDelayMs
         });
       } else {
-        void processJob({ jobId: job.id, simulateFailTier, simulateFailTiers, simulateFailCode, workerDelayMs });
+        void processJob({
+          jobId: job.id,
+          simulateFailTier,
+          simulateFailTiers,
+          simulateFailCode,
+          simulateRetryOnceTiers,
+          workerDelayMs
+        });
       }
       return res.status(202).json({ accepted: true, job_id: job.id, status: "PROCESSING" });
     }
 
-    const result = await processJob({ jobId: job.id, simulateFailTier, simulateFailTiers, simulateFailCode, workerDelayMs });
+    const result = await processJob({
+      jobId: job.id,
+      simulateFailTier,
+      simulateFailTiers,
+      simulateFailCode,
+      simulateRetryOnceTiers,
+      workerDelayMs
+    });
     if (!result.ok) {
       return res.status(409).json({ error: result.error });
     }

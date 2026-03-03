@@ -248,6 +248,20 @@ async function main() {
     );
     notes.push("PASS unknown provider error normalized to PROVIDER_UPSTREAM_5XX");
 
+    // Retry policy simulation: same tier one retry should recover without fallback
+    const retryCreateRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
+    assert(retryCreateRes.status === 201, `retry create expected 201 got ${retryCreateRes.status}`);
+    const retryJob = await retryCreateRes.json();
+    const retryRunRes = await fetch(
+      `${baseUrl}/jobs/${retryJob.job_id}/run?simulate_retry_once_tiers=standard`,
+      { method: "POST" }
+    );
+    assert(retryRunRes.status === 202, `retry run expected 202 got ${retryRunRes.status}`);
+    const retryGet = await getJob(retryJob.job_id);
+    assert(retryGet.status === "READY", `retry job expected READY got ${retryGet.status}`);
+    assert(retryGet.selected_tier === "standard", `retry should stay on standard got ${retryGet.selected_tier}`);
+    notes.push("PASS same-tier single retry recovers without fallback escalation");
+
     // Queue ordering: second async job must not finish before first in single-worker queue
     const q1CreateRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 9999 });
     assert(q1CreateRes.status === 201, `q1 create expected 201 got ${q1CreateRes.status}`);

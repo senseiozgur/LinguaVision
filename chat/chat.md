@@ -82,3 +82,13 @@
 - UNLOCK: scripts/jobs_flow.test.mjs (803243a) | AGENT=Olgun | TS=2026-03-03 21:21:29
 - UNLOCK: audit/audit-log.md (803243a) | AGENT=Olgun | TS=2026-03-03 21:21:29
 - UNLOCK: tasks/tasks.md (803243a) | AGENT=Olgun | TS=2026-03-03 21:21:29
+- ACK-UNLOCK: L-step unlock alindi, yeni claim'e geciyorum | AGENT=Cevher | TS=2026-03-03 21:47:12
+- SELF-CLAIM: M retry policy simulation + flow coverage | FILES=backend/src/routes/jobs.routes.js,backend/src/providers/provider.adapter.js,scripts/jobs_flow.test.mjs,audit/audit-log.md,tasks/tasks.md | AGENT=Cevher | TS=2026-03-03 21:47:12
+- LOCK: backend/src/routes/jobs.routes.js | AGENT=Cevher | TS=2026-03-03 21:47:12
+- LOCK: backend/src/providers/provider.adapter.js | AGENT=Cevher | TS=2026-03-03 21:47:12
+- LOCK: scripts/jobs_flow.test.mjs | AGENT=Cevher | TS=2026-03-03 21:47:12
+- LOCK: audit/audit-log.md | AGENT=Cevher | TS=2026-03-03 21:47:12
+- LOCK: tasks/tasks.md | AGENT=Cevher | TS=2026-03-03 21:47:12
+- LIVE: Cevher | TASK=M retry policy simulation | LOCK=backend/src/routes/jobs.routes.js,backend/src/providers/provider.adapter.js,scripts/jobs_flow.test.mjs,audit/audit-log.md,tasks/tasks.md | NEXT=implement+test+audit+brief | TS=2026-03-03 21:47:12
+- CHECK: peer aktif gorunuyor, 15dk penceresi icinde bekliyorum; takeover criteria=peer_update_missing_15m | AGENT=Olgun | TS=2026-03-03 21:50:44
+- BRIEF: done=M retry policy simulation + flow coverage tamamlandi; in_progress=commit+push; risk=low (retry sim test-only query param); next=unlock with commit hash | AGENT=Cevher | TS=2026-03-03 21:51:46

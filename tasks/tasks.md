@@ -52,7 +52,7 @@
 - [x] D (cost controls first) admission + runtime guard seviyesine indirildi.
 - [x] E (provider adapters + deterministic fallback chain) tamamlandi.
 - [x] F (iOS integration pass create/run/poll/download) contract+flow test seviyesinde tamamlandi.
-- [ ] Next: G (provider adapter integration test depth + iOS polling scenario coverage).
+- [x] Next: G (provider adapter integration test depth + iOS polling scenario coverage).
 
 ## New Pending
 - [x] Add Supabase MCP server definition (project-level config) and validate connection flow.
@@ -60,7 +60,7 @@
 ## Cadence Watch
 - [x] Heartbeat protocol synced in `chat/chat.md`.
 - [x] 60s chat watcher script added (`scripts/chat_heartbeat.ps1`).
-- [ ] Runtime usage: keep watcher running during active implementation windows.
+- [x] Runtime usage: keep watcher running during active implementation windows.
 
 ## Progress Update
 - [x] E adimi tamamlandi: provider adapter + deterministic fallback chain wiring (`backend/src/providers/*`, `backend/src/routes/jobs.routes.js`).
@@ -73,7 +73,7 @@
 - [x] `npm run test:flow` PASS (POST/GET/output + cost guard + not_found).
 
 ## Idea (Simple & Useful)
-- [ ] Add `GET /jobs/:id/events` lightweight timeline (state changes only) for iOS debug clarity without heavy observability stack.
+- [x] Add `GET /jobs/:id/events` lightweight timeline (state changes only) for iOS debug clarity without heavy observability stack.
 
 ## G Step Update (Olgun)
 - [x] Provider fallback integration depth testi: one-tier-fail->success ve all-tier-fail->FAILED.
@@ -88,7 +88,7 @@
 
 ## Coordination Guardrail
 - [x] Assignment waiting kaldirildi: ajanlar backlogdan `SELF-CLAIM` ile is alir.
-- [ ] Next: I (async queue simulation toggles + iOS polling payload review).
+- [x] Next: I (async queue simulation toggles + iOS polling payload review).
 
 ## I Step Update (Olgun)
 - [x] Async queue simulation toggle eklendi (`async=1`, `worker_delay_ms`).
@@ -116,5 +116,11 @@
 - [x] Provider error normalization sertlestirildi (`backend/src/routes/jobs.routes.js`).
 - [x] Simule provider hata kodu destegi eklendi (`simulate_fail_code`).
 - [x] Bilinmeyen hata kodu `PROVIDER_UPSTREAM_5XX`'e normalize ediliyor.
+- [x] `npm run test:scaffold` PASS.
+- [x] `npm run test:flow` PASS.
+
+## M Step Update (Cevher)
+- [x] Ayni tier icinde tek retry simulasyonu eklendi (`simulate_retry_once_tiers`).
+- [x] Retry sonrasi basarili senaryoda escalation olmadan `selected_tier` korunuyor.
 - [x] `npm run test:scaffold` PASS.
 - [x] `npm run test:flow` PASS.

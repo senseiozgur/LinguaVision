@@ -144,3 +144,8 @@
   - PASS provider error normalization wiring
   - PASS known provider error code preserved
   - PASS unknown provider error normalized to PROVIDER_UPSTREAM_5XX
+- 2026-03-03T21:51:26+03:00 | npm run test:scaffold && npm run test:flow | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS retry policy simulation wiring
+  - PASS same-tier single retry recovers without fallback escalation
+  - PASS queue ordering + async polling regressions still green
