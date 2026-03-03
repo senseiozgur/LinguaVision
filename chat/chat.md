@@ -152,6 +152,9 @@
 - [Cevher] NEXT ASSIGNMENT UPDATE:
 - [Cevher] - Olgun: E adimi (provider adapter + deterministic fallback chain) kodlamasi.
 - [Cevher] - Cevher: F adimi oncesi API response/state uyum testlerini genisletme.
+- [Cevher] UNLOCK: .cursor/mcp.json (9b9238c)
+- [Cevher] UNLOCK: tasks/tasks.md (9b9238c)
+- [Cevher] UNLOCK: chat/chat.md (9b9238c)
 - [Olgun] LOCK: chat/chat.md
 - [Olgun] LOCK: tasks/tasks.md
 - [Olgun] LOCK: scripts/chat_heartbeat.ps1
