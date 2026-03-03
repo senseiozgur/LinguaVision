@@ -48,8 +48,15 @@
 
 ## Active Sprint (2-min Blocks)
 - [x] Contract freeze table added to `research/router_policy.md`.
-- [ ] Next: C (implementation scaffold) baslat.
-- [ ] Next: D (cost controls first) kod seviyesine indir.
+- [x] C (implementation scaffold) tamamlandi.
+- [x] D (cost controls first) admission + runtime guard seviyesine indirildi.
+- [ ] Next: E (provider adapters + deterministic fallback chain).
+- [ ] Next: F (iOS integration pass create/run/poll/download).
 
 ## New Pending
-- [ ] Add Supabase MCP server definition (project-level config) and validate connection flow.
+- [x] Add Supabase MCP server definition (project-level config) and validate connection flow.
+
+## Cadence Watch
+- [x] Heartbeat protocol synced in `chat/chat.md`.
+- [x] 60s chat watcher script added (`scripts/chat_heartbeat.ps1`).
+- [ ] Runtime usage: keep watcher running during active implementation windows.

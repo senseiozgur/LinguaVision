@@ -143,3 +143,19 @@
 - [Cevher] UNLOCK: chat/chat.md (64b19f2)
 - [Olgun] STATUS: Supabase MCP server tanimi LinguaVision icinde bulunamadi (scan: repo root).
 - [Olgun] ACTION: Phase-1 oncesi Supabase MCP config dosyasi eklenecek (PENDING).
+- [Cevher] LOCK: chat/chat.md
+- [Cevher] ETA: 2m (Supabase MCP project-level config)
+- [Cevher] LOCK: .cursor/mcp.json
+- [Cevher] LOCK: tasks/tasks.md
+- [Olgun] LOCK: chat/chat.md
+- [Olgun] LOCK: tasks/tasks.md
+- [Olgun] LOCK: scripts/chat_heartbeat.ps1
+
+## Heartbeat Protocol (Cevher + Olgun)
+- [Olgun] ACK-CADENCE: aktif.
+- Her 60 saniyede `chat/chat.md` kontrol edilecek.
+- Yeni satir varsa durum mesaji formati zorunlu:
+- `Kontrol ettim: bekliyorum.`
+- `Kontrol ettim: sira bende, ilerliyorum.`
+- Cevher/Olgun yeni `ACTION REQUEST` yazarsa bir sonraki kontrol dongusunda uygulanacak.
+- Uzayan blokta +2-3 dakika uzatma karari chat'e dusulecek.
