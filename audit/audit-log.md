@@ -58,3 +58,14 @@
   - PASS jobs run response contract
   - PASS jobs get response state contract
   - PASS jobs error code contract
+- 2026-03-03T11:41:58+03:00 | scripts/chat_heartbeat.test.mjs | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS script exists
+  - PASS token: ValidateSet("Cevher", "Olgun")
+  - PASS token: .coord/heartbeats
+  - PASS token: ACTION REQUEST
+  - PASS token: Peer OK
+  - PASS token: STATUS REQUEST
+  - PASS token: $AutoLive
+  - PASS token: Write-LiveLine
+  - PASS token: LIVE:

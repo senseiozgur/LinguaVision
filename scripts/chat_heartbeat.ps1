@@ -3,8 +3,13 @@ param(
   [ValidateSet("Cevher", "Olgun")]
   [string]$AgentName,
   [string]$ChatPath = "chat/chat.md",
-  [int]$IntervalSec = 60,
-  [int]$StaleSec = 180
+  [int]$IntervalSec = 20,
+  [int]$StaleSec = 120,
+  [switch]$AutoLive,
+  [int]$LiveEverySec = 120,
+  [string]$Task = "sync",
+  [string]$Lock = "none",
+  [string]$Next = "check-chat"
 )
 
 if (-not (Test-Path $ChatPath)) {
@@ -21,9 +26,16 @@ New-Item -ItemType Directory -Force -Path $coordDir | Out-Null
 
 $lastHash = ""
 $lastLineCount = 0
+$lastLiveAt = (Get-Date).AddSeconds(-1 * $LiveEverySec)
+$lastStaleAlertAt = Get-Date
 
 Write-Host "Heartbeat bridge started: agent=$AgentName other=$otherAgent interval=${IntervalSec}s stale=${StaleSec}s"
-Write-Host "Usage: keep this terminal open while coding."
+Write-Host "Usage: keep this terminal open while coding. AutoLive=$AutoLive LiveEverySec=$LiveEverySec"
+
+function Write-LiveLine([string]$message) {
+  $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+  Add-Content -Path $ChatPath -Value "- [$AgentName] $message | TS=$ts"
+}
 
 while ($true) {
   try {
@@ -60,6 +72,10 @@ while ($true) {
       $ageSec = [math]::Round(((Get-Date) - $otherTs.DateTime).TotalSeconds)
       if ($ageSec -gt $StaleSec) {
         Write-Host "[$($ts.ToString('yyyy-MM-dd HH:mm:ss'))] ALERT: $otherAgent heartbeat stale (${ageSec}s). STATUS REQUEST yaz."
+        if ($AutoLive -and ((Get-Date) - $lastStaleAlertAt).TotalSeconds -ge $LiveEverySec) {
+          Write-LiveLine "ALERT: peer-stale=$otherAgent age=${ageSec}s (STATUS REQUEST)"
+          $lastStaleAlertAt = Get-Date
+        }
       } else {
         Write-Host "[$($ts.ToString('yyyy-MM-dd HH:mm:ss'))] Peer OK: $otherAgent aktif (${ageSec}s)."
       }
@@ -69,6 +85,11 @@ while ($true) {
 
     $lastHash = $hash
     $lastLineCount = $lineCount
+
+    if ($AutoLive -and ((Get-Date) - $lastLiveAt).TotalSeconds -ge $LiveEverySec) {
+      Write-LiveLine "LIVE: $AgentName | TASK=$Task | LOCK=$Lock | ETA=${LiveEverySec}s | NEXT=$Next"
+      $lastLiveAt = Get-Date
+    }
   } catch {
     $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
     Write-Host "[$ts] FAIL: heartbeat loop -> $($_.Exception.Message)"

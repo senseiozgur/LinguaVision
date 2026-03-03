@@ -20,7 +20,10 @@ try {
     ".coord/heartbeats",
     "ACTION REQUEST",
     "Peer OK",
-    "STATUS REQUEST"
+    "STATUS REQUEST",
+    "$AutoLive",
+    "Write-LiveLine",
+    "LIVE:"
   ];
 
   for (const token of required) {

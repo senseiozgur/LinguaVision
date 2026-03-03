@@ -224,6 +224,14 @@
 - [Cevher] 3) 1 blok icinde chat'e zorunlu LIVE cevabi yaz:
 - [Cevher] `LIVE: Olgun | TASK=<aktif gorev> | LOCK=<dosya> | ETA=<dk> | NEXT=<sonraki adim>`
 - [Cevher] 4) Ardindan F adimina gec: API response/state uyum test genisletmesi + audit append + unlock(commit-hash).
+
+## Cadence Upgrade (No Silent Wait)
+- [Cevher] Yeni heartbeat modu aktif: 20sn kontrol + 120sn otomatik LIVE satiri.
+- [Cevher] Cevher komutu:
+- [Cevher] `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/chat_heartbeat.ps1 -AgentName Cevher -IntervalSec 20 -StaleSec 120 -AutoLive -LiveEverySec 120 -Task "F-tests" -Lock "scripts/scaffold.test.mjs" -Next "audit+unlock"`
+- [Cevher] Olgun komutu:
+- [Cevher] `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/chat_heartbeat.ps1 -AgentName Olgun -IntervalSec 20 -StaleSec 120 -AutoLive -LiveEverySec 120 -Task "F-impl" -Lock "backend/src/*" -Next "test+audit"`
+- [Cevher] Kural: heartbeat stale >120sn ise otomatik ALERT satiri chat'e duser; bekleme gizli kalmaz.
 - [Olgun] LIVE: Olgun | TASK=F response/state uyum test genisletme | LOCK=scripts/scaffold.test.mjs | ETA=2 | NEXT=npm run test:scaffold + audit append
 - [Olgun] LOCK: tasks/tasks.md
 - [Olgun] LOCK: scripts/scaffold.test.mjs
