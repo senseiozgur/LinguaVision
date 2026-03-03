@@ -1,6 +1,6 @@
-﻿import express from "express";
+import express from "express";
 import multer from "multer";
-import { validateAdmission } from "../routing/cost.guard.js";
+import { estimateStepUnits, validateAdmission, validateRuntimeStep } from "../routing/cost.guard.js";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -11,13 +11,18 @@ export function createJobsRouter(deps) {
     const file = req.file;
     const targetLang = req.body?.target_lang;
     const packageName = req.body?.package || "free";
+    const mode = req.body?.mode || "readable";
+    const remainingUnits = req.body?.remaining_units ? Number(req.body.remaining_units) : null;
     if (!file) return res.status(400).json({ error: "invalid_input" });
     if (!targetLang) return res.status(400).json({ error: "invalid_input" });
 
-    const admission = validateAdmission({ packageName, fileSizeBytes: file.size || file.buffer.length });
+    const fileSizeBytes = file.size || file.buffer.length;
+    const stepUnits = estimateStepUnits({ fileSizeBytes, mode });
+    const worstCaseUnits = stepUnits * 2;
+    const admission = validateAdmission({ packageName, fileSizeBytes, worstCaseUnits, remainingUnits });
     if (!admission.ok) {
       const code = admission.error;
-      const status = code === "INPUT_LIMIT_EXCEEDED" ? 409 : 400;
+      const status = code === "INPUT_LIMIT_EXCEEDED" || code === "COST_GUARD_BLOCK" ? 409 : 400;
       return res.status(status).json({ error: code });
     }
 
@@ -28,7 +33,12 @@ export function createJobsRouter(deps) {
     });
 
     const inputPath = await deps.storage.saveInput(temp.id, file.originalname || "input.pdf", file.buffer);
-    deps.jobs.update(temp.id, { input_file_path: inputPath });
+    deps.jobs.update(temp.id, {
+      input_file_path: inputPath,
+      package_name: packageName,
+      mode,
+      budget_units: admission.budgetUnits
+    });
 
     return res.status(201).json({ job_id: temp.id, status: "PENDING" });
   });
@@ -40,8 +50,28 @@ export function createJobsRouter(deps) {
 
     deps.jobs.update(job.id, { status: "PROCESSING", progress_pct: 30 });
     const inBytes = await deps.storage.readFile(job.input_file_path);
+    const stepUnits = estimateStepUnits({ fileSizeBytes: inBytes.length, mode: job.mode || "readable" });
+    const runtimeGuard = validateRuntimeStep({
+      packageName: job.package_name || "free",
+      spentUnits: job.billing?.charged_units || 0,
+      stepUnits
+    });
+    if (!runtimeGuard.ok) {
+      deps.jobs.update(job.id, {
+        status: "FAILED",
+        progress_pct: 100,
+        error_code: runtimeGuard.error
+      });
+      return res.status(409).json({ error: runtimeGuard.error });
+    }
+
     const outPath = await deps.storage.saveOutput(job.id, inBytes);
-    deps.jobs.update(job.id, { status: "READY", progress_pct: 100, output_file_path: outPath });
+    deps.jobs.update(job.id, {
+      status: "READY",
+      progress_pct: 100,
+      output_file_path: outPath,
+      billing: { charged_units: (job.billing?.charged_units || 0) + stepUnits, charged: true }
+    });
 
     return res.status(202).json({ accepted: true, job_id: job.id, status: "PROCESSING" });
   });

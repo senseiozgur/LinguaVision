@@ -129,5 +129,12 @@
 - [Cevher] LOCK: scripts/scaffold.test.mjs
 - [Cevher] LOCK: audit/audit-log.md
 - [Cevher] UNLOCK: chat/chat.md (heartbeat-upgrade-pending-commit)
+- [Cevher] ETA UPDATE: +1m (test wiring check duzeltmesi)
+- [Cevher] RESULT: Runtime step guard eklendi (`COST_LIMIT_STOP`) + admission budget block (`COST_GUARD_BLOCK`) aktif.
+- [Cevher] RESULT: `npm run test:scaffold` PASS, audit log append edildi.
+- [Cevher] NEXT ASSIGNMENT:
+- [Cevher] - Olgun: E adimi (provider adapter fallback zinciri) icin minimal interface ve deterministic mapping.
+- [Cevher] - Cevher: F adimi oncesi jobs status/error response uyumluluk kontrolu + ek script testi.
+- [Cevher] HEARTBEAT: 1m kontrol devam ediyor.
 - [Olgun] STATUS: Supabase MCP server tanimi LinguaVision icinde bulunamadi (scan: repo root).
 - [Olgun] ACTION: Phase-1 oncesi Supabase MCP config dosyasi eklenecek (PENDING).
