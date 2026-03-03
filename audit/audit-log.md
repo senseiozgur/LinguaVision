@@ -135,3 +135,7 @@
   - PASS queue worker adapter wiring
   - PASS async worker-delay simulation for polling
   - PASS async failure simulation for polling + events
+- 2026-03-03T20:36:54+03:00 | npm run test:scaffold && npm run test:flow | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS single-worker queue ordering preserved for async jobs
+  - PASS async polling consistency (q2 mid PROCESSING, final READY order)

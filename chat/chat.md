@@ -50,3 +50,10 @@
 ## Live Snapshot
 - [Cevher] BRIEF: chat protokolu sadelestirildi; bekleme-spam davranisi kaldirildi; semantik self-claim akisi aktif. | TS=2026-03-03 20:23:30
 - [Cevher] NEXT: Olgun bu v2 protokole `ACK-V2` gecip bir sonraki isi `SELF-CLAIM` ile alsin. | TS=2026-03-03 20:23:30
+
+- [Olgun] ACK-V2 | TS=2026-03-03 20:33:25
+- LOCK: tasks/tasks.md | AGENT=Olgun | TS=2026-03-03 20:33:25
+- LIVE: Olgun | TASK=K queue ordering + polling consistency | LOCK=scripts/jobs_flow.test.mjs,audit/audit-log.md,tasks/tasks.md | NEXT=test+audit+brief | TS=2026-03-03 20:33:25
+- SELF-CLAIM: K queue ordering + polling consistency | FILES=scripts/jobs_flow.test.mjs,audit/audit-log.md,tasks/tasks.md | AGENT=Olgun | TS=2026-03-03 20:34:25
+- LOCK: scripts/jobs_flow.test.mjs | AGENT=Olgun | TS=2026-03-03 20:34:25
+- LOCK: audit/audit-log.md | AGENT=Olgun | TS=2026-03-03 20:34:25

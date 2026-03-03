@@ -45,6 +45,21 @@ async function postJob({ targetLang = "tr", packageName = "free", remainingUnits
   return fetch(`${baseUrl}/jobs`, { method: "POST", body: form });
 }
 
+async function getJob(jobId) {
+  const res = await fetch(`${baseUrl}/jobs/${jobId}`);
+  return res.json();
+}
+
+async function waitForJobStatus(jobId, expectedStatus, timeoutMs = 4000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const job = await getJob(jobId);
+    if (job.status === expectedStatus) return job;
+    await wait(80);
+  }
+  throw new Error(`job ${jobId} did not reach ${expectedStatus} within ${timeoutMs}ms`);
+}
+
 async function main() {
   try {
     server = spawn(process.execPath, ["src/server.js"], {
@@ -200,6 +215,32 @@ async function main() {
     assert(asyncFailStates.includes("PROCESSING"), "async fail events should include PROCESSING");
     assert(asyncFailStates[asyncFailStates.length - 1] === "FAILED", "async fail events last state should be FAILED");
     notes.push("PASS async failure simulation for polling + events");
+
+    // Queue ordering: second async job must not finish before first in single-worker queue
+    const q1CreateRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 9999 });
+    assert(q1CreateRes.status === 201, `q1 create expected 201 got ${q1CreateRes.status}`);
+    const q1 = await q1CreateRes.json();
+    const q2CreateRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 9999 });
+    assert(q2CreateRes.status === 201, `q2 create expected 201 got ${q2CreateRes.status}`);
+    const q2 = await q2CreateRes.json();
+
+    const q1RunRes = await fetch(`${baseUrl}/jobs/${q1.job_id}/run?async=1&worker_delay_ms=500`, { method: "POST" });
+    assert(q1RunRes.status === 202, `q1 async run expected 202 got ${q1RunRes.status}`);
+    const q2RunRes = await fetch(`${baseUrl}/jobs/${q2.job_id}/run?async=1`, { method: "POST" });
+    assert(q2RunRes.status === 202, `q2 async run expected 202 got ${q2RunRes.status}`);
+
+    await wait(150);
+    const q2Mid = await getJob(q2.job_id);
+    assert(q2Mid.status === "PROCESSING", `q2 mid status expected PROCESSING got ${q2Mid.status}`);
+    assert(!q2Mid.selected_tier, "q2 should not be selected before worker executes");
+
+    const q1Ready = await waitForJobStatus(q1.job_id, "READY");
+    const q2Ready = await waitForJobStatus(q2.job_id, "READY");
+    assert(
+      Date.parse(q2Ready.last_transition_at) >= Date.parse(q1Ready.last_transition_at),
+      "q2 must not transition to READY before q1 in single-worker queue"
+    );
+    notes.push("PASS single-worker queue ordering preserved for async jobs");
 
     const notFoundRes = await fetch(`${baseUrl}/jobs/nope/run`, { method: "POST" });
     assert(notFoundRes.status === 404, `run missing job expected 404 got ${notFoundRes.status}`);

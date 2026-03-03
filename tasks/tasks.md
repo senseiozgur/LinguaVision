@@ -105,3 +105,9 @@
 - [x] Async run path queue uzerinden worker izolasyonuna alindi.
 - [x] `npm run test:scaffold` PASS.
 - [x] `npm run test:flow` PASS.
+
+## K Step Update (Olgun)
+- [x] Single-worker queue ordering testi eklendi (`scripts/jobs_flow.test.mjs`).
+- [x] Async polling tutarliligi: ikinci is birinciden once `READY` olamaz.
+- [x] `npm run test:scaffold` PASS.
+- [x] `npm run test:flow` PASS.
