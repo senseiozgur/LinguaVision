@@ -130,3 +130,8 @@
   - PASS async failure simulation for polling + events
   - PASS provider all-tier-fail -> FAILED + normalized error
   - PASS /jobs/:id/events failure transition trace
+- 2026-03-03T20:07:30+03:00 | npm run test:scaffold && npm run test:flow | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS queue worker adapter wiring
+  - PASS async worker-delay simulation for polling
+  - PASS async failure simulation for polling + events

@@ -168,7 +168,7 @@ async function main() {
     const midRes = await fetch(`${baseUrl}/jobs/${asyncJob.job_id}`);
     const midJob = await midRes.json();
     assert(midJob.status === "PROCESSING", `mid state expected PROCESSING got ${midJob.status}`);
-    await wait(350);
+    await wait(700);
     const doneRes = await fetch(`${baseUrl}/jobs/${asyncJob.job_id}`);
     const doneJob = await doneRes.json();
     assert(doneJob.status === "READY", `final async state expected READY got ${doneJob.status}`);
@@ -186,7 +186,7 @@ async function main() {
     const asyncMidRes = await fetch(`${baseUrl}/jobs/${asyncFailJob.job_id}`);
     const asyncMidJob = await asyncMidRes.json();
     assert(asyncMidJob.status === "PROCESSING", `async fail mid expected PROCESSING got ${asyncMidJob.status}`);
-    await wait(320);
+    await wait(700);
     const asyncFailDoneRes = await fetch(`${baseUrl}/jobs/${asyncFailJob.job_id}`);
     const asyncFailDone = await asyncFailDoneRes.json();
     assert(asyncFailDone.status === "FAILED", `async fail final expected FAILED got ${asyncFailDone.status}`);

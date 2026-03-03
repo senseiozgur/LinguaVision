@@ -3,6 +3,7 @@ import { fileURLToPath } from "url";
 import express from "express";
 import { createJobsRouter } from "./routes/jobs.routes.js";
 import { JobStore } from "./jobs/job.store.js";
+import { JobQueue } from "./jobs/job.queue.js";
 import { LocalStorage } from "./storage/local.storage.js";
 import { createProviderAdapter } from "./providers/provider.adapter.js";
 
@@ -14,7 +15,17 @@ const jobs = new JobStore();
 const storage = new LocalStorage(path.resolve(__dirname, "../storage-data"));
 const providerAdapter = createProviderAdapter();
 
-app.use("/jobs", createJobsRouter({ jobs, storage, providerAdapter }));
+const shared = { jobs, storage, providerAdapter };
+const queue = new JobQueue({
+  processFn: async (payload) => {
+    if (!shared.processJob) return;
+    await shared.processJob(payload);
+  }
+});
+queue.start();
+
+shared.queue = queue;
+app.use("/jobs", createJobsRouter(shared));
 
 const port = process.env.PORT || 8787;
 app.listen(port, () => {

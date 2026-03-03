@@ -17,6 +17,7 @@ const required = [
   "backend/src/server.js",
   "backend/src/routes/jobs.routes.js",
   "backend/src/jobs/job.store.js",
+  "backend/src/jobs/job.queue.js",
   "backend/src/storage/local.storage.js",
   "backend/src/routing/cost.guard.js",
   "backend/src/providers/provider.router.js",
@@ -112,7 +113,11 @@ const hasEventsEndpoint =
 const hasAsyncToggleWiring =
   jobsRoute.includes("const asyncMode = req.query?.async === \"1\"") &&
   jobsRoute.includes("worker_delay_ms") &&
-  jobsRoute.includes("void processJob");
+  (jobsRoute.includes("deps.queue.enqueue") || jobsRoute.includes("void processJob"));
+const hasQueueWorkerWiring =
+  jobsRoute.includes("deps.processJob = processJob") &&
+  jobsRoute.includes("deps.queue.enqueue") &&
+  fs.readFileSync(path.join(root, "backend/src/server.js"), "utf8").includes("new JobQueue");
 
 notes.push(`${hasAdmissionGuard ? "PASS" : "FAIL"} admission guard wiring`);
 notes.push(`${hasRuntimeGuard ? "PASS" : "FAIL"} runtime guard wiring`);
@@ -123,6 +128,7 @@ notes.push(`${hasJobsGetContract ? "PASS" : "FAIL"} jobs get response state cont
 notes.push(`${hasJobsErrorCodes ? "PASS" : "FAIL"} jobs error code contract`);
 notes.push(`${hasEventsEndpoint ? "PASS" : "FAIL"} jobs events endpoint contract`);
 notes.push(`${hasAsyncToggleWiring ? "PASS" : "FAIL"} async queue simulation wiring`);
+notes.push(`${hasQueueWorkerWiring ? "PASS" : "FAIL"} queue worker adapter wiring`);
 if (
   !hasAdmissionGuard ||
   !hasRuntimeGuard ||
@@ -132,7 +138,8 @@ if (
   !hasJobsGetContract ||
   !hasJobsErrorCodes ||
   !hasEventsEndpoint ||
-  !hasAsyncToggleWiring
+  !hasAsyncToggleWiring ||
+  !hasQueueWorkerWiring
 ) {
   pass = false;
 }

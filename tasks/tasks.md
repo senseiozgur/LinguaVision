@@ -99,3 +99,9 @@
 ## I Step Update (Cevher)
 - [x] Flow test derinlestirme: async failure path (PROCESSING -> FAILED + error_code + events trace).
 - [x] `npm run test:flow` PASS (yeni async failure senaryosu dahil).
+
+## J Step Update (Olgun)
+- [x] In-memory `JobQueue` adapter eklendi (`backend/src/jobs/job.queue.js`).
+- [x] Async run path queue uzerinden worker izolasyonuna alindi.
+- [x] `npm run test:scaffold` PASS.
+- [x] `npm run test:flow` PASS.

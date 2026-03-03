@@ -73,6 +73,9 @@ export function createJobsRouter(deps) {
     return { ok: false, error: lastError };
   }
 
+  // Expose process fn to server queue adapter
+  deps.processJob = processJob;
+
   router.post("/", upload.single("file"), async (req, res) => {
     const file = req.file;
     const targetLang = req.body?.target_lang;
@@ -126,7 +129,11 @@ export function createJobsRouter(deps) {
     deps.jobs.update(job.id, { status: "PROCESSING", progress_pct: 30 });
 
     if (asyncMode) {
-      void processJob({ jobId: job.id, simulateFailTier, simulateFailTiers, workerDelayMs });
+      if (deps.queue && typeof deps.queue.enqueue === "function") {
+        deps.queue.enqueue({ jobId: job.id, simulateFailTier, simulateFailTiers, workerDelayMs });
+      } else {
+        void processJob({ jobId: job.id, simulateFailTier, simulateFailTiers, workerDelayMs });
+      }
       return res.status(202).json({ accepted: true, job_id: job.id, status: "PROCESSING" });
     }
 
