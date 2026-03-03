@@ -80,3 +80,8 @@
 - [x] iOS polling uyum state transition testi: PENDING->PROCESSING->READY ve FAILED+error_code.
 - [x] `npm run test:scaffold` PASS.
 - [x] `npm run test:flow` PASS.
+
+## H Step Update (Olgun)
+- [x] `GET /jobs/:id/events` endpoint eklendi (state timeline).
+- [x] `npm run test:scaffold` PASS (events endpoint contract dahil).
+- [x] `npm run test:flow` PASS (success/failure transition traces dahil).

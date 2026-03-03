@@ -104,6 +104,9 @@ const hasJobsErrorCodes =
   jobsRoute.includes("{ error: \"job_not_found\" }") &&
   jobsRoute.includes("{ error: \"job_already_running\" }") &&
   jobsRoute.includes("{ error: \"job_not_ready\" }");
+const hasEventsEndpoint =
+  jobsRoute.includes("router.get(\"/:id/events\"") &&
+  jobsRoute.includes("deps.jobs.getEvents");
 
 notes.push(`${hasAdmissionGuard ? "PASS" : "FAIL"} admission guard wiring`);
 notes.push(`${hasRuntimeGuard ? "PASS" : "FAIL"} runtime guard wiring`);
@@ -112,6 +115,7 @@ notes.push(`${hasJobsCreateContract ? "PASS" : "FAIL"} jobs create response cont
 notes.push(`${hasJobsRunContract ? "PASS" : "FAIL"} jobs run response contract`);
 notes.push(`${hasJobsGetContract ? "PASS" : "FAIL"} jobs get response state contract`);
 notes.push(`${hasJobsErrorCodes ? "PASS" : "FAIL"} jobs error code contract`);
+notes.push(`${hasEventsEndpoint ? "PASS" : "FAIL"} jobs events endpoint contract`);
 if (
   !hasAdmissionGuard ||
   !hasRuntimeGuard ||
@@ -119,7 +123,8 @@ if (
   !hasJobsCreateContract ||
   !hasJobsRunContract ||
   !hasJobsGetContract ||
-  !hasJobsErrorCodes
+  !hasJobsErrorCodes ||
+  !hasEventsEndpoint
 ) {
   pass = false;
 }

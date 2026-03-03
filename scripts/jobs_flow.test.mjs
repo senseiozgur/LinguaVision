@@ -79,6 +79,15 @@ async function main() {
     assert(job.status === "READY" && Number.isFinite(job.progress_pct), "job state expected READY");
     notes.push("PASS GET /jobs/:id READY state transition");
 
+    const eventsRes = await fetch(`${baseUrl}/jobs/${created.job_id}/events`);
+    assert(eventsRes.status === 200, `events status expected 200 got ${eventsRes.status}`);
+    const eventsJson = await eventsRes.json();
+    const states = (eventsJson.events || []).map((e) => e.state);
+    assert(states[0] === "PENDING", "events first state should be PENDING");
+    assert(states.includes("PROCESSING"), "events should include PROCESSING");
+    assert(states[states.length - 1] === "READY", "events last state should be READY");
+    notes.push("PASS /jobs/:id/events success transition trace");
+
     const outputRes = await fetch(`${baseUrl}/jobs/${created.job_id}/output`);
     assert(outputRes.status === 200, `output status expected 200 got ${outputRes.status}`);
     const ct = outputRes.headers.get("content-type") || "";
@@ -133,6 +142,14 @@ async function main() {
     );
     notes.push("PASS provider all-tier-fail -> FAILED + normalized error");
 
+    const failEventsRes = await fetch(`${baseUrl}/jobs/${failJob.job_id}/events`);
+    assert(failEventsRes.status === 200, `failed events status expected 200 got ${failEventsRes.status}`);
+    const failEvents = await failEventsRes.json();
+    const failStates = (failEvents.events || []).map((e) => e.state);
+    assert(failStates.includes("PROCESSING"), "failed events should include PROCESSING");
+    assert(failStates[failStates.length - 1] === "FAILED", "failed events last state should be FAILED");
+    notes.push("PASS /jobs/:id/events failure transition trace");
+
     const failOutputRes = await fetch(`${baseUrl}/jobs/${failJob.job_id}/output`);
     assert(failOutputRes.status === 409, `failed output expected 409 got ${failOutputRes.status}`);
     notes.push("PASS failed output contract job_not_ready");
@@ -140,6 +157,10 @@ async function main() {
     const notFoundRes = await fetch(`${baseUrl}/jobs/nope/run`, { method: "POST" });
     assert(notFoundRes.status === 404, `run missing job expected 404 got ${notFoundRes.status}`);
     notes.push("PASS job_not_found contract");
+
+    const eventsMissingRes = await fetch(`${baseUrl}/jobs/nope/events`);
+    assert(eventsMissingRes.status === 404, `events missing job expected 404 got ${eventsMissingRes.status}`);
+    notes.push("PASS events job_not_found contract");
 
     console.log("PASS");
     console.log("AUDIT SUMMARY:");

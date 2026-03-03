@@ -17,6 +17,7 @@
       output_file_path: null,
       source_lang: input.source_lang || null,
       target_lang: input.target_lang,
+      events: [{ state: "PENDING", at: now }],
       billing: {
         request_id: null,
         billing_request_id: null,
@@ -41,7 +42,19 @@
     if (patch.billing) {
       next.billing = { ...existing.billing, ...patch.billing };
     }
+    if (patch.status && patch.status !== existing.status) {
+      const now = new Date().toISOString();
+      next.events = [...(existing.events || []), { state: patch.status, at: now }];
+    } else if (!next.events) {
+      next.events = existing.events || [];
+    }
     this.jobs.set(id, next);
     return next;
+  }
+
+  getEvents(id) {
+    const job = this.jobs.get(id);
+    if (!job) return null;
+    return job.events || [];
   }
 }

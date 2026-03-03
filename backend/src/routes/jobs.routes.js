@@ -122,6 +122,12 @@ export function createJobsRouter(deps) {
     });
   });
 
+  router.get("/:id/events", (req, res) => {
+    const events = deps.jobs.getEvents(req.params.id);
+    if (!events) return res.status(404).json({ error: "job_not_found" });
+    return res.status(200).json({ job_id: req.params.id, events });
+  });
+
   router.get("/:id/output", async (req, res) => {
     const job = deps.jobs.get(req.params.id);
     if (!job) return res.status(404).json({ error: "job_not_found" });

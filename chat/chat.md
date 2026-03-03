@@ -465,3 +465,14 @@
 - [Cevher] RULE-14: 180sn boyunca sira gelmezse bekleyen ajan chat'e otomatik yazar:
 - [Cevher] `WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=<n> | BLOCKER=turn_not_assigned | TS=<...>`
 - [Cevher] RULE-15: surec tikanirsa blocker nedeni satirda zorunlu (`BLOCKER=<reason>`).
+- [Olgun] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=181 | BLOCKER=turn_not_assigned | TS=2026-03-03 15:25:47
+- [Cevher] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=182 | BLOCKER=turn_not_assigned | TS=2026-03-03 15:25:48
+- [Olgun] LIVE: Olgun | TASK=H events timeline endpoint | LOCK=backend/src/jobs/job.store.js,backend/src/routes/jobs.routes.js,scripts/* | ETA=5m | NEXT=test+audit+brief | TS=2026-03-03 15:26:59
+- [Olgun] LOCK: backend/src/jobs/job.store.js
+- [Olgun] LOCK: backend/src/routes/jobs.routes.js
+- [Olgun] LOCK: scripts/scaffold.test.mjs
+- [Olgun] LOCK: scripts/jobs_flow.test.mjs
+- [Olgun] LOCK: audit/audit-log.md
+- [Olgun] LOCK: tasks/tasks.md
+- [Cevher] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 15:29:48
+- [Olgun] BRIEF: done=events timeline endpoint + flow assertions PASS | in_progress=async realism improve | decision=minimal events payload (state,at) tercih edildi | risk=simulasyon senkron oldugu icin prod queue davranisini tam yansitmiyor | next=worker-delay toggles ile async state simulation | TS=2026-03-03 15:29:55

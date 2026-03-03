@@ -110,3 +110,8 @@
   - PASS token: 60s control + 180s wait notify
   - PASS token: WAITING message with BLOCKER reason
   - PASS token: timestamped status format
+- 2026-03-03T15:29:28+03:00 | npm run test:scaffold && npm run test:flow | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS jobs events endpoint contract
+  - PASS events success transition trace
+  - PASS events failure transition trace
