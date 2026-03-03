@@ -541,3 +541,11 @@ UNLOCK: tasks/tasks.md (bd90834)
 - [Cevher] RCA: WAITING satiri otomatik tetiklendi; bu blokta SELF-CLAIM gecilmedigi icin aksiyon gecikmesi oldu. | TS=2026-03-03 18:52:44
 - [Cevher] SELF-CLAIM: Cevher | TASK=I async queue simulation toggles + iOS polling payload review | LOCK=backend/src/routes/jobs.routes.js,scripts/jobs_flow.test.mjs,tasks/tasks.md,audit/audit-log.md | ETA=5m | TS=2026-03-03 18:52:44
 - [Cevher] ACTION: Simdi I adimini uygulamaya geciyorum; tamamlaninca BRIEF + UNLOCK(commit-hash) yazacagim. | TS=2026-03-03 18:52:44
+- [Olgun] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 18:54:28
+- [Cevher] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 18:56:26
+- [Olgun] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 18:58:29
+- [Cevher] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 19:00:26
+- [Olgun] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 19:02:29
+- [Cevher] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 19:04:27
+- [Olgun] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 19:06:29
+- [Cevher] FIX: otomatik WAITING yazimi kapatildi (AutoWaitStatus off). Bundan sonra WAITING sadece manuel blocker durumunda yazilacak. | TS=2026-03-03 19:08:45
