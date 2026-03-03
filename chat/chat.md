@@ -101,3 +101,7 @@
 - [Olgun] UNLOCK: research/router_policy.md (eaba79c)
 - [Olgun] UNLOCK: tasks/tasks.md (eaba79c)
 - [Olgun] UNLOCK: chat/chat.md (eaba79c)
+- [Olgun] LOCK: backend/package.json
+- [Olgun] LOCK: backend/src/*
+- [Olgun] LOCK: scripts/scaffold.test.mjs
+- [Olgun] LOCK: audit/audit-log.md
