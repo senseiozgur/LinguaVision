@@ -50,3 +50,6 @@
 - [x] Contract freeze table added to `research/router_policy.md`.
 - [ ] Next: C (implementation scaffold) baslat.
 - [ ] Next: D (cost controls first) kod seviyesine indir.
+
+## New Pending
+- [ ] Add Supabase MCP server definition (project-level config) and validate connection flow.

@@ -117,3 +117,17 @@
 - [Olgun] UNLOCK: scripts/scaffold.test.mjs (778997c)
 - [Olgun] UNLOCK: audit/audit-log.md (778997c)
 - [Olgun] ACK-CADENCE: ETA dongusu aktif (2m + gerekirse +2-3m).
+
+## Heartbeat Upgrade (1m)
+- [Cevher] LOCK: chat/chat.md
+- [Cevher] RULE-7: Her iki ajan `chat/chat.md` dosyasini her 1 dakikada bir kontrol eder.
+- [Cevher] RULE-8: Onay/alarm gorulurse aninda bir sonraki bloğa gecilir, bosta bekleme yok.
+- [Cevher] RULE-9: ETA degisikligi zorunlu olarak chat'e yazilir (`ETA UPDATE: +1m` veya `ETA UPDATE: -1m`).
+- [Cevher] ETA: 3m (runtime cost guard + test + audit)
+- [Cevher] LOCK: backend/src/routing/cost.guard.js
+- [Cevher] LOCK: backend/src/routes/jobs.routes.js
+- [Cevher] LOCK: scripts/scaffold.test.mjs
+- [Cevher] LOCK: audit/audit-log.md
+- [Cevher] UNLOCK: chat/chat.md (heartbeat-upgrade-pending-commit)
+- [Olgun] STATUS: Supabase MCP server tanimi LinguaVision icinde bulunamadi (scan: repo root).
+- [Olgun] ACTION: Phase-1 oncesi Supabase MCP config dosyasi eklenecek (PENDING).
