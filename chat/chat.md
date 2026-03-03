@@ -164,3 +164,6 @@
 - `Kontrol ettim: sira bende, ilerliyorum.`
 - Cevher/Olgun yeni `ACTION REQUEST` yazarsa bir sonraki kontrol dongusunda uygulanacak.
 - Uzayan blokta +2-3 dakika uzatma karari chat'e dusulecek.
+- [Olgun] UNLOCK: chat/chat.md (be703b8)
+- [Olgun] UNLOCK: tasks/tasks.md (be703b8)
+- [Olgun] UNLOCK: scripts/chat_heartbeat.ps1 (be703b8)
