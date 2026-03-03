@@ -6,7 +6,9 @@ param(
   [int]$IntervalSec = 60,
   [int]$StaleSec = 180,
   [switch]$AutoWaitStatus,
+  [bool]$EnableAutoWaiting = $false,
   [int]$WaitNotifySec = 180,
+  [int]$WaitCooldownSec = 900,
   [switch]$AutoLive,
   [int]$LiveEverySec = 120,
   [string]$Task = "sync",
@@ -35,10 +37,22 @@ $lastWaitNoteAt = (Get-Date).AddSeconds(-1 * $WaitNotifySec)
 
 Write-Host "Heartbeat bridge started: agent=$AgentName other=$otherAgent interval=${IntervalSec}s stale=${StaleSec}s"
 Write-Host "Usage: keep this terminal open. AutoWaitStatus=$AutoWaitStatus WaitNotifySec=$WaitNotifySec AutoLive=$AutoLive"
+if ($AutoWaitStatus -and -not $EnableAutoWaiting) {
+  Write-Host "INFO: AutoWaitStatus requested but blocked by policy (EnableAutoWaiting=false)."
+}
 
 function Write-LiveLine([string]$message) {
   $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
   Add-Content -Path $ChatPath -Value "- [$AgentName] $message | TS=$ts"
+}
+
+function Has-RecentToken([string[]]$lines, [string]$token, [int]$tail = 60) {
+  if (-not $lines -or $lines.Count -eq 0) { return $false }
+  $start = [Math]::Max(0, $lines.Count - $tail)
+  for ($i = $start; $i -lt $lines.Count; $i++) {
+    if ($lines[$i] -match $token) { return $true }
+  }
+  return $false
 }
 
 while ($true) {
@@ -88,10 +102,14 @@ while ($true) {
       Write-Host "[$($ts.ToString('yyyy-MM-dd HH:mm:ss'))] Peer WAIT: $otherAgent heartbeat dosyasi yok."
     }
 
-    if ($AutoWaitStatus) {
+    $effectiveAutoWait = $AutoWaitStatus -and $EnableAutoWaiting
+    if ($effectiveAutoWait) {
       $waitSec = [math]::Round(((Get-Date) - $lastTurnAt).TotalSeconds)
-      if ($waitSec -ge $WaitNotifySec -and ((Get-Date) - $lastWaitNoteAt).TotalSeconds -ge $WaitNotifySec) {
-        Write-LiveLine "WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=$waitSec | BLOCKER=turn_not_assigned"
+      $recentSelfClaim = Has-RecentToken -lines $lines -token "SELF-CLAIM:" -tail 80
+      $recentWaiting = Has-RecentToken -lines $lines -token "WAITING:" -tail 80
+      $cooldownOk = ((Get-Date) - $lastWaitNoteAt).TotalSeconds -ge $WaitCooldownSec
+      if ($waitSec -ge $WaitNotifySec -and $cooldownOk -and -not $recentSelfClaim -and -not $recentWaiting) {
+        Write-LiveLine "WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=$waitSec | BLOCKER=turn_not_assigned (throttled)"
         $lastWaitNoteAt = Get-Date
       }
     }

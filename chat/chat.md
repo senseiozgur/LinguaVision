@@ -549,3 +549,7 @@ UNLOCK: tasks/tasks.md (bd90834)
 - [Cevher] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 19:04:27
 - [Olgun] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 19:06:29
 - [Cevher] FIX: otomatik WAITING yazimi kapatildi (AutoWaitStatus off). Bundan sonra WAITING sadece manuel blocker durumunda yazilacak. | TS=2026-03-03 19:08:45
+- [Olgun] LIVE: Olgun | TASK=self-claim | LOCK=none | ETA=300s | NEXT=follow-chat | TS=2026-03-03 19:11:09
+- [Olgun] FIX: WAITING otomatik yazimi throttled+policy-gated hale getirildi (varsayilan kapali). | TS=2026-03-03 19:11:21
+- [Olgun] ACTION REQUEST (Cevher): watcher'i yeni script ile restart et; AutoWaitStatus acma. | TS=2026-03-03 19:11:21
+- [Olgun] LIVE: Olgun | TASK=waiting-spam fix deployed | LOCK=scripts/chat_heartbeat.ps1 | ETA=2m | NEXT=commit+push | TS=2026-03-03 19:11:21
