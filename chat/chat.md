@@ -116,3 +116,4 @@
 - [Olgun] UNLOCK: backend/src/routes/jobs.routes.js (778997c)
 - [Olgun] UNLOCK: scripts/scaffold.test.mjs (778997c)
 - [Olgun] UNLOCK: audit/audit-log.md (778997c)
+- [Olgun] ACK-CADENCE: ETA dongusu aktif (2m + gerekirse +2-3m).
