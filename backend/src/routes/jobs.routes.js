@@ -49,6 +49,13 @@ export function createJobsRouter(deps) {
     if (!job) return res.status(404).json({ error: "job_not_found" });
     if (job.status !== "PENDING") return res.status(409).json({ error: "job_already_running" });
 
+    const simulateFailTier = (req.query?.simulate_fail_tier || "").toString() || null;
+    const simulateFailTiers = (req.query?.simulate_fail_tiers || "")
+      .toString()
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+
     deps.jobs.update(job.id, { status: "PROCESSING", progress_pct: 30 });
     const inBytes = await deps.storage.readFile(job.input_file_path);
 
@@ -73,7 +80,8 @@ export function createJobsRouter(deps) {
         inputBuffer: inBytes,
         tier,
         mode: route.mode,
-        simulateFailTier: req.body?.simulate_fail_tier || null
+        simulateFailTier,
+        simulateFailTiers
       });
 
       if (!translated.ok) {

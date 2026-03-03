@@ -74,3 +74,9 @@
 
 ## Idea (Simple & Useful)
 - [ ] Add `GET /jobs/:id/events` lightweight timeline (state changes only) for iOS debug clarity without heavy observability stack.
+
+## G Step Update (Olgun)
+- [x] Provider fallback integration depth testi: one-tier-fail->success ve all-tier-fail->FAILED.
+- [x] iOS polling uyum state transition testi: PENDING->PROCESSING->READY ve FAILED+error_code.
+- [x] `npm run test:scaffold` PASS.
+- [x] `npm run test:flow` PASS.

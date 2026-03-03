@@ -1,4 +1,4 @@
-import { spawn } from "child_process";
+﻿import { spawn } from "child_process";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -59,23 +59,25 @@ async function main() {
     await waitForServerReady();
     notes.push("PASS backend server ready");
 
+    // Baseline happy path + state transition
     const createRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 9999 });
     assert(createRes.status === 201, `create job status expected 201 got ${createRes.status}`);
     const created = await createRes.json();
     assert(created.job_id && created.status === "PENDING", "create response shape invalid");
-    notes.push("PASS POST /jobs create contract");
+    notes.push("PASS POST /jobs create contract (PENDING)");
 
     const runRes = await fetch(`${baseUrl}/jobs/${created.job_id}/run`, { method: "POST" });
     assert(runRes.status === 202, `run status expected 202 got ${runRes.status}`);
     const runJson = await runRes.json();
     assert(runJson.accepted === true && runJson.job_id === created.job_id, "run response shape invalid");
-    notes.push("PASS POST /jobs/:id/run contract");
+    assert(runJson.status === "PROCESSING", "run response should be PROCESSING");
+    notes.push("PASS POST /jobs/:id/run contract (PROCESSING)");
 
     const getRes = await fetch(`${baseUrl}/jobs/${created.job_id}`);
     assert(getRes.status === 200, `get status expected 200 got ${getRes.status}`);
     const job = await getRes.json();
     assert(job.status === "READY" && Number.isFinite(job.progress_pct), "job state expected READY");
-    notes.push("PASS GET /jobs/:id READY state");
+    notes.push("PASS GET /jobs/:id READY state transition");
 
     const outputRes = await fetch(`${baseUrl}/jobs/${created.job_id}/output`);
     assert(outputRes.status === 200, `output status expected 200 got ${outputRes.status}`);
@@ -83,11 +85,57 @@ async function main() {
     assert(ct.includes("application/pdf"), "output content-type should be application/pdf");
     notes.push("PASS GET /jobs/:id/output contract");
 
+    // Admission budget block
     const blockedRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 0 });
     assert(blockedRes.status === 409, `blocked status expected 409 got ${blockedRes.status}`);
     const blocked = await blockedRes.json();
     assert(blocked.error === "COST_GUARD_BLOCK", `blocked error expected COST_GUARD_BLOCK got ${blocked.error}`);
     notes.push("PASS COST_GUARD_BLOCK admission");
+
+    // Provider fallback: one tier fail -> next tier success
+    const createFallbackRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
+    assert(createFallbackRes.status === 201, `fallback create expected 201 got ${createFallbackRes.status}`);
+    const fallbackJob = await createFallbackRes.json();
+
+    const fallbackRunRes = await fetch(
+      `${baseUrl}/jobs/${fallbackJob.job_id}/run?simulate_fail_tiers=standard`,
+      { method: "POST" }
+    );
+    assert(fallbackRunRes.status === 202, `fallback run expected 202 got ${fallbackRunRes.status}`);
+
+    const fallbackGetRes = await fetch(`${baseUrl}/jobs/${fallbackJob.job_id}`);
+    assert(fallbackGetRes.status === 200, "fallback get expected 200");
+    const fallbackGet = await fallbackGetRes.json();
+    assert(fallbackGet.status === "READY", "fallback job should end READY");
+    assert((fallbackGet.billing?.charged_units || 0) >= 3, "fallback should charge next tier units");
+    notes.push("PASS provider fallback one-tier-fail then success");
+
+    // Provider fallback: all tiers fail -> FAILED + normalized error_code
+    const createFailRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
+    assert(createFailRes.status === 201, `fail create expected 201 got ${createFailRes.status}`);
+    const failJob = await createFailRes.json();
+
+    const failRunRes = await fetch(
+      `${baseUrl}/jobs/${failJob.job_id}/run?simulate_fail_tiers=standard,premium,economy`,
+      { method: "POST" }
+    );
+    assert(failRunRes.status === 409, `all-fail run expected 409 got ${failRunRes.status}`);
+    const failRun = await failRunRes.json();
+    assert(failRun.error === "PROVIDER_TIMEOUT", `all-fail error expected PROVIDER_TIMEOUT got ${failRun.error}`);
+
+    const failGetRes = await fetch(`${baseUrl}/jobs/${failJob.job_id}`);
+    assert(failGetRes.status === 200, "fail get expected 200");
+    const failGet = await failGetRes.json();
+    assert(failGet.status === "FAILED", `failed state expected FAILED got ${failGet.status}`);
+    assert(
+      failGet.error_code === "PROVIDER_TIMEOUT",
+      `failed error_code expected PROVIDER_TIMEOUT got ${failGet.error_code}`
+    );
+    notes.push("PASS provider all-tier-fail -> FAILED + normalized error");
+
+    const failOutputRes = await fetch(`${baseUrl}/jobs/${failJob.job_id}/output`);
+    assert(failOutputRes.status === 409, `failed output expected 409 got ${failOutputRes.status}`);
+    notes.push("PASS failed output contract job_not_ready");
 
     const notFoundRes = await fetch(`${baseUrl}/jobs/nope/run`, { method: "POST" });
     assert(notFoundRes.status === 404, `run missing job expected 404 got ${notFoundRes.status}`);

@@ -99,3 +99,9 @@
   - PASS GET /jobs/:id/output contract
   - PASS COST_GUARD_BLOCK admission
   - PASS job_not_found contract
+- 2026-03-03T15:07:05+03:00 | npm run test:scaffold && npm run test:flow | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS provider one-tier-fail then success
+  - PASS provider all-tier-fail -> FAILED + normalized error
+  - PASS state transition PENDING->PROCESSING->READY
+  - PASS failure path -> FAILED + PROVIDER_TIMEOUT
