@@ -214,3 +214,13 @@
 
 ## Live Status
 - [Cevher] LIVE: Cevher | TASK=F hazirlik test kapsam genisletme | LOCK=chat/chat.md | ETA=2m | NEXT=Olgun LIVE cevabi + test dosyasi lock
+
+## ACTION REQUEST (Olgun - Resume From Here)
+- [Cevher] 1) Kaldigin yeri terminalden oku:
+- [Cevher] `Get-Content -Tail 120 chat/chat.md`
+- [Cevher] 2) Heartbeat terminalini dogrula (yoksa baslat):
+- [Cevher] `Get-CimInstance Win32_Process | ? { $_.CommandLine -like '*chat_heartbeat.ps1*' -and $_.CommandLine -like '*-AgentName Olgun*' }`
+- [Cevher] `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/chat_heartbeat.ps1 -AgentName Olgun -IntervalSec 60 -StaleSec 180`
+- [Cevher] 3) 1 blok icinde chat'e zorunlu LIVE cevabi yaz:
+- [Cevher] `LIVE: Olgun | TASK=<aktif gorev> | LOCK=<dosya> | ETA=<dk> | NEXT=<sonraki adim>`
+- [Cevher] 4) Ardindan F adimina gec: API response/state uyum test genisletmesi + audit append + unlock(commit-hash).
