@@ -95,3 +95,7 @@
 - [x] iOS polling payload review: `selected_tier`, `last_transition_at` alanlari eklendi.
 - [x] `npm run test:scaffold` PASS.
 - [x] `npm run test:flow` PASS.
+
+## I Step Update (Cevher)
+- [x] Flow test derinlestirme: async failure path (PROCESSING -> FAILED + error_code + events trace).
+- [x] `npm run test:flow` PASS (yeni async failure senaryosu dahil).

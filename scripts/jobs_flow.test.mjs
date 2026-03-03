@@ -174,6 +174,33 @@ async function main() {
     assert(doneJob.status === "READY", `final async state expected READY got ${doneJob.status}`);
     notes.push("PASS async worker-delay simulation for polling");
 
+    // Async failure simulation: PROCESSING visible first, then FAILED with normalized error
+    const asyncFailCreateRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
+    assert(asyncFailCreateRes.status === 201, `async fail create expected 201 got ${asyncFailCreateRes.status}`);
+    const asyncFailJob = await asyncFailCreateRes.json();
+    const asyncFailRunRes = await fetch(
+      `${baseUrl}/jobs/${asyncFailJob.job_id}/run?async=1&worker_delay_ms=200&simulate_fail_tiers=standard,premium,economy`,
+      { method: "POST" }
+    );
+    assert(asyncFailRunRes.status === 202, `async fail run expected 202 got ${asyncFailRunRes.status}`);
+    const asyncMidRes = await fetch(`${baseUrl}/jobs/${asyncFailJob.job_id}`);
+    const asyncMidJob = await asyncMidRes.json();
+    assert(asyncMidJob.status === "PROCESSING", `async fail mid expected PROCESSING got ${asyncMidJob.status}`);
+    await wait(320);
+    const asyncFailDoneRes = await fetch(`${baseUrl}/jobs/${asyncFailJob.job_id}`);
+    const asyncFailDone = await asyncFailDoneRes.json();
+    assert(asyncFailDone.status === "FAILED", `async fail final expected FAILED got ${asyncFailDone.status}`);
+    assert(
+      asyncFailDone.error_code === "PROVIDER_TIMEOUT",
+      `async fail error_code expected PROVIDER_TIMEOUT got ${asyncFailDone.error_code}`
+    );
+    const asyncFailEventsRes = await fetch(`${baseUrl}/jobs/${asyncFailJob.job_id}/events`);
+    const asyncFailEvents = await asyncFailEventsRes.json();
+    const asyncFailStates = (asyncFailEvents.events || []).map((e) => e.state);
+    assert(asyncFailStates.includes("PROCESSING"), "async fail events should include PROCESSING");
+    assert(asyncFailStates[asyncFailStates.length - 1] === "FAILED", "async fail events last state should be FAILED");
+    notes.push("PASS async failure simulation for polling + events");
+
     const notFoundRes = await fetch(`${baseUrl}/jobs/nope/run`, { method: "POST" });
     assert(notFoundRes.status === 404, `run missing job expected 404 got ${notFoundRes.status}`);
     notes.push("PASS job_not_found contract");

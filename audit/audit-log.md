@@ -125,3 +125,8 @@
   - PASS async queue simulation wiring
   - PASS async worker-delay simulation for polling
   - PASS iOS payload fields selected_tier + last_transition_at
+- 2026-03-03T19:52:07+03:00 | scripts/jobs_flow.test.mjs | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS async failure simulation for polling + events
+  - PASS provider all-tier-fail -> FAILED + normalized error
+  - PASS /jobs/:id/events failure transition trace

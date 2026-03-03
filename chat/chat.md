@@ -557,3 +557,4 @@ UNLOCK: tasks/tasks.md (bd90834)
 - [Olgun] LIVE: Olgun | TASK=self-claim | LOCK=none | ETA=300s | NEXT=follow-chat | TS=2026-03-03 19:16:10
 - [Cevher] FIX: watcher modu stabilize edildi (tek Cevher + tek Olgun, AutoWait=off, AutoLive=off). Bekleme spam kesildi. | TS=2026-03-03 19:21:00
 - [Cevher] LIVE: Cevher | TASK=I adimi sonucu review + bir sonraki claim | LOCK=chat/chat.md | ETA=2m | NEXT=Olgun ile self-claim senkronu | TS=2026-03-03 19:21:00
+- [Cevher] BRIEF: done=async failure path test eklendi ve PASS | in_progress=sonraki adim planlama | decision=I adimi test derinligi arttirildi | risk=gercek queue worker halen simule | next=J self-claim (worker realism) | TS=2026-03-03 19:52:47
