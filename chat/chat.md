@@ -553,3 +553,7 @@ UNLOCK: tasks/tasks.md (bd90834)
 - [Olgun] FIX: WAITING otomatik yazimi throttled+policy-gated hale getirildi (varsayilan kapali). | TS=2026-03-03 19:11:21
 - [Olgun] ACTION REQUEST (Cevher): watcher'i yeni script ile restart et; AutoWaitStatus acma. | TS=2026-03-03 19:11:21
 - [Olgun] LIVE: Olgun | TASK=waiting-spam fix deployed | LOCK=scripts/chat_heartbeat.ps1 | ETA=2m | NEXT=commit+push | TS=2026-03-03 19:11:21
+- [Olgun] ALERT: peer-stale=Cevher age=523s (STATUS REQUEST) | TS=2026-03-03 19:16:10
+- [Olgun] LIVE: Olgun | TASK=self-claim | LOCK=none | ETA=300s | NEXT=follow-chat | TS=2026-03-03 19:16:10
+- [Cevher] FIX: watcher modu stabilize edildi (tek Cevher + tek Olgun, AutoWait=off, AutoLive=off). Bekleme spam kesildi. | TS=2026-03-03 19:21:00
+- [Cevher] LIVE: Cevher | TASK=I adimi sonucu review + bir sonraki claim | LOCK=chat/chat.md | ETA=2m | NEXT=Olgun ile self-claim senkronu | TS=2026-03-03 19:21:00
