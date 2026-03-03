@@ -90,11 +90,39 @@ const hasRuntimeGuard =
 const hasFallbackChain =
   jobsRoute.includes("planRoute") &&
   jobsRoute.includes("for (const tier of route.chain)");
+const hasJobsCreateContract =
+  jobsRoute.includes("res.status(201).json({ job_id: temp.id, status: \"PENDING\" })");
+const hasJobsRunContract =
+  jobsRoute.includes("res.status(202).json({ accepted: true, job_id: job.id, status: \"PROCESSING\" })");
+const hasJobsGetContract =
+  jobsRoute.includes("job_id: job.id") &&
+  jobsRoute.includes("status: job.status") &&
+  jobsRoute.includes("progress_pct: job.progress_pct") &&
+  jobsRoute.includes("error_code: job.error_code") &&
+  jobsRoute.includes("billing: job.billing");
+const hasJobsErrorCodes =
+  jobsRoute.includes("{ error: \"job_not_found\" }") &&
+  jobsRoute.includes("{ error: \"job_already_running\" }") &&
+  jobsRoute.includes("{ error: \"job_not_ready\" }");
 
 notes.push(`${hasAdmissionGuard ? "PASS" : "FAIL"} admission guard wiring`);
 notes.push(`${hasRuntimeGuard ? "PASS" : "FAIL"} runtime guard wiring`);
 notes.push(`${hasFallbackChain ? "PASS" : "FAIL"} provider fallback chain wiring`);
-if (!hasAdmissionGuard || !hasRuntimeGuard || !hasFallbackChain) pass = false;
+notes.push(`${hasJobsCreateContract ? "PASS" : "FAIL"} jobs create response contract`);
+notes.push(`${hasJobsRunContract ? "PASS" : "FAIL"} jobs run response contract`);
+notes.push(`${hasJobsGetContract ? "PASS" : "FAIL"} jobs get response state contract`);
+notes.push(`${hasJobsErrorCodes ? "PASS" : "FAIL"} jobs error code contract`);
+if (
+  !hasAdmissionGuard ||
+  !hasRuntimeGuard ||
+  !hasFallbackChain ||
+  !hasJobsCreateContract ||
+  !hasJobsRunContract ||
+  !hasJobsGetContract ||
+  !hasJobsErrorCodes
+) {
+  pass = false;
+}
 
 console.log(pass ? "PASS" : "FAIL");
 console.log("AUDIT SUMMARY:");

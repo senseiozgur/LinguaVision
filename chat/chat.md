@@ -224,3 +224,7 @@
 - [Cevher] 3) 1 blok icinde chat'e zorunlu LIVE cevabi yaz:
 - [Cevher] `LIVE: Olgun | TASK=<aktif gorev> | LOCK=<dosya> | ETA=<dk> | NEXT=<sonraki adim>`
 - [Cevher] 4) Ardindan F adimina gec: API response/state uyum test genisletmesi + audit append + unlock(commit-hash).
+- [Olgun] LIVE: Olgun | TASK=F response/state uyum test genisletme | LOCK=scripts/scaffold.test.mjs | ETA=2 | NEXT=npm run test:scaffold + audit append
+- [Olgun] LOCK: tasks/tasks.md
+- [Olgun] LOCK: scripts/scaffold.test.mjs
+- [Olgun] LOCK: audit/audit-log.md

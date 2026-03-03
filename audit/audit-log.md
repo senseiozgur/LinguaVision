@@ -52,3 +52,9 @@
   - PASS token: ACTION REQUEST
   - PASS token: Peer OK
   - PASS token: STATUS REQUEST
+- 2026-03-03T11:25:17+03:00 | npm run test:scaffold | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS jobs create response contract
+  - PASS jobs run response contract
+  - PASS jobs get response state contract
+  - PASS jobs error code contract
