@@ -63,12 +63,13 @@
 
 ## Progress Update
 - [x] E adimi tamamlandi: provider adapter + deterministic fallback chain wiring (`backend/src/providers/*`, `backend/src/routes/jobs.routes.js`).
-- [ ] F adimi bekliyor: iOS integration pass ve response uyum test genisletme.
+- [x] F adimi tamamlandi: jobs response/state uyum testleri + flow testi (`scripts/scaffold.test.mjs`, `scripts/jobs_flow.test.mjs`).
 
 ## F Step Update (Olgun)
 - [x] Jobs API response/state uyum testleri `scripts/scaffold.test.mjs` icinde genisletildi.
 - [x] `npm run test:scaffold` PASS.
 - [x] `audit/audit-log.md` append edildi.
+- [x] `npm run test:flow` PASS (POST/GET/output + cost guard + not_found).
 
 ## Idea (Simple & Useful)
 - [ ] Add `GET /jobs/:id/events` lightweight timeline (state changes only) for iOS debug clarity without heavy observability stack.

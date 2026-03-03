@@ -69,3 +69,33 @@
   - PASS token: $AutoLive
   - PASS token: Write-LiveLine
   - PASS token: LIVE:
+- 2026-03-03T14:23:53+03:00 | scripts/scaffold.test.mjs | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS backend/package.json
+  - PASS backend/src/server.js
+  - PASS backend/src/routes/jobs.routes.js
+  - PASS backend/src/jobs/job.store.js
+  - PASS backend/src/storage/local.storage.js
+  - PASS backend/src/routing/cost.guard.js
+  - PASS backend/src/providers/provider.router.js
+  - PASS backend/src/providers/provider.adapter.js
+  - PASS strict step units > readable
+  - PASS admission COST_GUARD_BLOCK
+  - PASS runtime COST_LIMIT_STOP
+  - PASS provider fallback deterministic mapping
+  - PASS admission guard wiring
+  - PASS runtime guard wiring
+  - PASS provider fallback chain wiring
+  - PASS jobs create response contract
+  - PASS jobs run response contract
+  - PASS jobs get response state contract
+  - PASS jobs error code contract
+- 2026-03-03T14:23:53+03:00 | scripts/jobs_flow.test.mjs | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS backend server ready
+  - PASS POST /jobs create contract
+  - PASS POST /jobs/:id/run contract
+  - PASS GET /jobs/:id READY state
+  - PASS GET /jobs/:id/output contract
+  - PASS COST_GUARD_BLOCK admission
+  - PASS job_not_found contract
