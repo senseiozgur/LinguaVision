@@ -11,7 +11,8 @@ const required = [
   "backend/src/server.js",
   "backend/src/routes/jobs.routes.js",
   "backend/src/jobs/job.store.js",
-  "backend/src/storage/local.storage.js"
+  "backend/src/storage/local.storage.js",
+  "backend/src/routing/cost.guard.js"
 ];
 
 let pass = true;
@@ -23,6 +24,11 @@ for (const p of required) {
   notes.push(`${ok ? "PASS" : "FAIL"} ${p}`);
   if (!ok) pass = false;
 }
+
+const jobsRoute = fs.readFileSync(path.join(root, "backend/src/routes/jobs.routes.js"), "utf8");
+const hasGuard = jobsRoute.includes("validateAdmission") && jobsRoute.includes("INPUT_LIMIT_EXCEEDED");
+notes.push(`${hasGuard ? "PASS" : "FAIL"} admission guard wiring`);
+if (!hasGuard) pass = false;
 
 console.log(pass ? "PASS" : "FAIL");
 console.log("AUDIT SUMMARY:");

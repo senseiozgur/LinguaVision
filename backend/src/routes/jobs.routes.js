@@ -1,5 +1,6 @@
 ﻿import express from "express";
 import multer from "multer";
+import { validateAdmission } from "../routing/cost.guard.js";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -9,8 +10,16 @@ export function createJobsRouter(deps) {
   router.post("/", upload.single("file"), async (req, res) => {
     const file = req.file;
     const targetLang = req.body?.target_lang;
+    const packageName = req.body?.package || "free";
     if (!file) return res.status(400).json({ error: "invalid_input" });
     if (!targetLang) return res.status(400).json({ error: "invalid_input" });
+
+    const admission = validateAdmission({ packageName, fileSizeBytes: file.size || file.buffer.length });
+    if (!admission.ok) {
+      const code = admission.error;
+      const status = code === "INPUT_LIMIT_EXCEEDED" ? 409 : 400;
+      return res.status(status).json({ error: code });
+    }
 
     const temp = deps.jobs.create({
       target_lang: targetLang,

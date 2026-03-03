@@ -109,3 +109,6 @@
 - [Olgun] UNLOCK: backend/src/* (ff74efc)
 - [Olgun] UNLOCK: scripts/scaffold.test.mjs (ff74efc)
 - [Olgun] UNLOCK: audit/audit-log.md (ff74efc)
+- [Olgun] LOCK: backend/src/routing/cost.guard.js
+- [Olgun] LOCK: backend/src/routes/jobs.routes.js
+- [Olgun] LOCK: scripts/scaffold.test.mjs
