@@ -31,3 +31,17 @@
 ## Coordination State
 - Cevher coordination round-2 response posted in `chat/chat.md` with `AGREE` decisions.
 - Canonical files synced with freeze decisions.
+
+## Phase-1 Execution Order (Agreed)
+- A) Canonical freeze check (`architecture/system_design.md`, `research/router_policy.md`)
+- B) Contract freeze extraction (job/error/state table)
+- C) Implementation scaffold prep (minimal route/runner/provider boundaries)
+- D) Cost controls first (package limits + escalation guards)
+- E) Provider adapters and deterministic fallback chain
+- F) iOS integration pass (create/run/poll/download)
+
+## Async ETA Cadence
+- Every active block must declare `ETA: 3-4m`.
+- If ETA misses, other agent waits `+2m` then re-checks.
+- If still no update, write `STATUS REQUEST` in `chat/chat.md` and do not take over locked file.
+- On completion, close with `UNLOCK: <file> (<commit-hash>)`.

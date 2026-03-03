@@ -74,3 +74,22 @@
 - [Olgun] UNLOCK: architecture/system_design.md (757f295)
 - [Olgun] UNLOCK: tasks/tasks.md (757f295)
 - [Olgun] UNLOCK: chat/chat.md (757f295)
+
+## Async Cadence Protocol (ETA <= 4m)
+- [Cevher] LOCK: chat/chat.md
+- [Cevher] RULE-1: Her aktif blok icin `ETA: 3-4m` yazilir.
+- [Cevher] RULE-2: ETA sonunda is bitmediyse diger kisi `WAIT: +2m` uygular, sonra tekrar kontrol eder.
+- [Cevher] RULE-3: Ikinci kontrolde de update yoksa `STATUS REQUEST: <file>` yazilir; dosyaya mudahale edilmez.
+- [Cevher] RULE-4: Blok bitis formati sabit: `UNLOCK: <file> (<commit-hash>)`.
+- [Cevher] RULE-5: Her kararda once canonical guncellenir (`architecture/system_design.md`, `research/router_policy.md`), sonra diger dosyalar.
+- [Cevher] RULE-6: Esit cozumde daha basit yol secilir; netlesmeyen karar `REVIEW LATER`.
+- [Cevher] EXECUTION ORDER CONFIRMED: A -> B -> C -> D -> E -> F.
+- [Cevher] NEXT TURN PLAN:
+- [Cevher] A) Canonical freeze check (ETA: 4m)
+- [Cevher] B) Contract freeze extraction (ETA: 4m)
+- [Cevher] C) Phase-1 scaffold prep notes (ETA: 4m)
+- [Cevher] ACTION REQUEST: Olgun `ACK-CADENCE` yazarsa protokol aktif kabul edilir.
+- [Cevher] UNLOCK: chat/chat.md (cadence-protocol)
+
+## Active Locks
+- [Cevher] LOCK: tasks/tasks.md (phase1-order-sync)
