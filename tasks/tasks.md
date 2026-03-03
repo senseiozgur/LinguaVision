@@ -111,3 +111,10 @@
 - [x] Async polling tutarliligi: ikinci is birinciden once `READY` olamaz.
 - [x] `npm run test:scaffold` PASS.
 - [x] `npm run test:flow` PASS.
+
+## L Step Update (Olgun)
+- [x] Provider error normalization sertlestirildi (`backend/src/routes/jobs.routes.js`).
+- [x] Simule provider hata kodu destegi eklendi (`simulate_fail_code`).
+- [x] Bilinmeyen hata kodu `PROVIDER_UPSTREAM_5XX`'e normalize ediliyor.
+- [x] `npm run test:scaffold` PASS.
+- [x] `npm run test:flow` PASS.

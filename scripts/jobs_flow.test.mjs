@@ -216,6 +216,38 @@ async function main() {
     assert(asyncFailStates[asyncFailStates.length - 1] === "FAILED", "async fail events last state should be FAILED");
     notes.push("PASS async failure simulation for polling + events");
 
+    // Error normalization: known provider code should be preserved
+    const knownErrCreateRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
+    assert(knownErrCreateRes.status === 201, `known error create expected 201 got ${knownErrCreateRes.status}`);
+    const knownErrJob = await knownErrCreateRes.json();
+    const knownErrRunRes = await fetch(
+      `${baseUrl}/jobs/${knownErrJob.job_id}/run?simulate_fail_tiers=standard,premium,economy&simulate_fail_code=PROVIDER_RATE_LIMIT`,
+      { method: "POST" }
+    );
+    assert(knownErrRunRes.status === 409, `known error run expected 409 got ${knownErrRunRes.status}`);
+    const knownErrRun = await knownErrRunRes.json();
+    assert(
+      knownErrRun.error === "PROVIDER_RATE_LIMIT",
+      `known error should preserve PROVIDER_RATE_LIMIT got ${knownErrRun.error}`
+    );
+    notes.push("PASS known provider error code preserved");
+
+    // Error normalization: unknown provider error should map to PROVIDER_UPSTREAM_5XX
+    const unknownErrCreateRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
+    assert(unknownErrCreateRes.status === 201, `unknown error create expected 201 got ${unknownErrCreateRes.status}`);
+    const unknownErrJob = await unknownErrCreateRes.json();
+    const unknownErrRunRes = await fetch(
+      `${baseUrl}/jobs/${unknownErrJob.job_id}/run?simulate_fail_tiers=standard,premium,economy&simulate_fail_code=RANDOM_PROVIDER_ERROR`,
+      { method: "POST" }
+    );
+    assert(unknownErrRunRes.status === 409, `unknown error run expected 409 got ${unknownErrRunRes.status}`);
+    const unknownErrRun = await unknownErrRunRes.json();
+    assert(
+      unknownErrRun.error === "PROVIDER_UPSTREAM_5XX",
+      `unknown error should normalize to PROVIDER_UPSTREAM_5XX got ${unknownErrRun.error}`
+    );
+    notes.push("PASS unknown provider error normalized to PROVIDER_UPSTREAM_5XX");
+
     // Queue ordering: second async job must not finish before first in single-worker queue
     const q1CreateRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 9999 });
     assert(q1CreateRes.status === 201, `q1 create expected 201 got ${q1CreateRes.status}`);

@@ -139,3 +139,8 @@
   AUDIT SUMMARY:
   - PASS single-worker queue ordering preserved for async jobs
   - PASS async polling consistency (q2 mid PROCESSING, final READY order)
+- 2026-03-03T21:19:33+03:00 | npm run test:scaffold && npm run test:flow | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS provider error normalization wiring
+  - PASS known provider error code preserved
+  - PASS unknown provider error normalized to PROVIDER_UPSTREAM_5XX

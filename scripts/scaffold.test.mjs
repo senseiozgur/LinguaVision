@@ -118,6 +118,10 @@ const hasQueueWorkerWiring =
   jobsRoute.includes("deps.processJob = processJob") &&
   jobsRoute.includes("deps.queue.enqueue") &&
   fs.readFileSync(path.join(root, "backend/src/server.js"), "utf8").includes("new JobQueue");
+const hasErrorNormalizationWiring =
+  jobsRoute.includes("normalizeProviderError") &&
+  jobsRoute.includes("KNOWN_PROVIDER_ERRORS") &&
+  jobsRoute.includes("simulate_fail_code");
 
 notes.push(`${hasAdmissionGuard ? "PASS" : "FAIL"} admission guard wiring`);
 notes.push(`${hasRuntimeGuard ? "PASS" : "FAIL"} runtime guard wiring`);
@@ -129,6 +133,7 @@ notes.push(`${hasJobsErrorCodes ? "PASS" : "FAIL"} jobs error code contract`);
 notes.push(`${hasEventsEndpoint ? "PASS" : "FAIL"} jobs events endpoint contract`);
 notes.push(`${hasAsyncToggleWiring ? "PASS" : "FAIL"} async queue simulation wiring`);
 notes.push(`${hasQueueWorkerWiring ? "PASS" : "FAIL"} queue worker adapter wiring`);
+notes.push(`${hasErrorNormalizationWiring ? "PASS" : "FAIL"} provider error normalization wiring`);
 if (
   !hasAdmissionGuard ||
   !hasRuntimeGuard ||
@@ -139,7 +144,8 @@ if (
   !hasJobsErrorCodes ||
   !hasEventsEndpoint ||
   !hasAsyncToggleWiring ||
-  !hasQueueWorkerWiring
+  !hasQueueWorkerWiring ||
+  !hasErrorNormalizationWiring
 ) {
   pass = false;
 }

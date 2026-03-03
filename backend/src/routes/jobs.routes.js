@@ -4,15 +4,31 @@ import { estimateStepUnits, validateAdmission, validateRuntimeStep } from "../ro
 import { getTierMultiplier, planRoute } from "../providers/provider.router.js";
 
 const upload = multer({ storage: multer.memoryStorage() });
+const KNOWN_PROVIDER_ERRORS = new Set([
+  "PROVIDER_RATE_LIMIT",
+  "PROVIDER_TIMEOUT",
+  "PROVIDER_UPSTREAM_5XX"
+]);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function normalizeProviderError(code) {
+  if (KNOWN_PROVIDER_ERRORS.has(code)) return code;
+  return "PROVIDER_UPSTREAM_5XX";
+}
+
 export function createJobsRouter(deps) {
   const router = express.Router();
 
-  async function processJob({ jobId, simulateFailTier, simulateFailTiers, workerDelayMs }) {
+  async function processJob({
+    jobId,
+    simulateFailTier,
+    simulateFailTiers,
+    simulateFailCode,
+    workerDelayMs
+  }) {
     const job = deps.jobs.get(jobId);
     if (!job) return { ok: false, error: "job_not_found" };
 
@@ -44,11 +60,12 @@ export function createJobsRouter(deps) {
         tier,
         mode: route.mode,
         simulateFailTier,
-        simulateFailTiers
+        simulateFailTiers,
+        simulateFailCode
       });
 
       if (!translated.ok) {
-        lastError = translated.error || "PROVIDER_TIMEOUT";
+        lastError = normalizeProviderError(translated.error);
         continue;
       }
 
@@ -123,6 +140,7 @@ export function createJobsRouter(deps) {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
+    const simulateFailCode = (req.query?.simulate_fail_code || "").toString().trim() || "PROVIDER_TIMEOUT";
     const workerDelayMs = Math.max(0, Number(req.query?.worker_delay_ms || 0));
     const asyncMode = req.query?.async === "1";
 
@@ -130,14 +148,20 @@ export function createJobsRouter(deps) {
 
     if (asyncMode) {
       if (deps.queue && typeof deps.queue.enqueue === "function") {
-        deps.queue.enqueue({ jobId: job.id, simulateFailTier, simulateFailTiers, workerDelayMs });
+        deps.queue.enqueue({
+          jobId: job.id,
+          simulateFailTier,
+          simulateFailTiers,
+          simulateFailCode,
+          workerDelayMs
+        });
       } else {
-        void processJob({ jobId: job.id, simulateFailTier, simulateFailTiers, workerDelayMs });
+        void processJob({ jobId: job.id, simulateFailTier, simulateFailTiers, simulateFailCode, workerDelayMs });
       }
       return res.status(202).json({ accepted: true, job_id: job.id, status: "PROCESSING" });
     }
 
-    const result = await processJob({ jobId: job.id, simulateFailTier, simulateFailTiers, workerDelayMs });
+    const result = await processJob({ jobId: job.id, simulateFailTier, simulateFailTiers, simulateFailCode, workerDelayMs });
     if (!result.ok) {
       return res.status(409).json({ error: result.error });
     }
