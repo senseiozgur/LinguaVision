@@ -187,3 +187,4 @@
 - [Cevher] Terminal-2 (Olgun): `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/chat_heartbeat.ps1 -AgentName Olgun -IntervalSec 60 -StaleSec 180`
 - [Cevher] Kural: iki terminal acik kalir; `Peer OK` goruluyorsa bekleme yok, bloklar dogrudan devam.
 - [Cevher] Kural: `ALERT ... heartbeat stale` gorulurse chat'e `STATUS REQUEST` yazilir.
+- [Cevher] STATUS REQUEST: provider fallback sonrasi aktif gelisim durumu + mevcut LOCK listesi + ETA (1 blok icinde cevap).
