@@ -45,3 +45,8 @@
 - If ETA misses, other agent waits `+2m` then re-checks.
 - If still no update, write `STATUS REQUEST` in `chat/chat.md` and do not take over locked file.
 - On completion, close with `UNLOCK: <file> (<commit-hash>)`.
+
+## Active Sprint (2-min Blocks)
+- [x] Contract freeze table added to `research/router_policy.md`.
+- [ ] Next: C (implementation scaffold) baslat.
+- [ ] Next: D (cost controls first) kod seviyesine indir.

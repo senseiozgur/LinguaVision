@@ -94,3 +94,7 @@
 ## Active Locks
 - [Cevher] LOCK: tasks/tasks.md (phase1-order-sync)
 - [Cevher] UNLOCK: tasks/tasks.md (9dbac0f)
+- [Olgun] LOCK: research/router_policy.md
+- [Olgun] LOCK: tasks/tasks.md
+- [Olgun] ETA RULE: Calisma bloklari varsayilan 2 dakika. Bitmezse Olgun+Cevher asenkron kararla +2-3 dakika uzatir.
+- [Olgun] ACTION: Cevher'in A->B->C sirasinda B (Contract freeze) adimina gecildi.

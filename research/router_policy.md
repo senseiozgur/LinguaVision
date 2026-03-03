@@ -85,3 +85,28 @@
 - D2: MVP teslim kapsaminda iOS tarafi `async job + poll + output` ile sinirli.
 - D3: Cost guard iki seviyeli zorunlu: admission worst-case block + runtime step guard.
 - D4: `strict/readable` UI secicisi `REVIEW LATER`.
+
+## Contract Freeze (Phase-1 Prep)
+
+### Jobs API (Frozen)
+| Endpoint | Success | Failure Codes |
+|---|---|---|
+| `POST /jobs` | `201 { job_id, status }` | `400 invalid_input` |
+| `POST /jobs/{id}/run` | `202 { accepted, job_id, status }` | `404 job_not_found`, `409 job_already_running` |
+| `GET /jobs/{id}` | `200 { job_id, status, progress_pct, error_code, billing{...} }` | `404 job_not_found` |
+| `GET /jobs/{id}/output` | `200 application/pdf` | `404 job_not_found`, `409 job_not_ready` |
+
+### Router/Budget Error Codes (Frozen)
+- `INPUT_LIMIT_EXCEEDED`
+- `COST_GUARD_BLOCK`
+- `COST_LIMIT_STOP`
+- `ROUTER_MAX_ESCALATION_REACHED`
+- `ROUTER_NO_FALLBACK_PATH`
+- `PROVIDER_RATE_LIMIT`
+- `PROVIDER_TIMEOUT`
+- `PROVIDER_UPSTREAM_5XX`
+
+### Source Evidence
+- `D:/dev/proje/Deepl/docs/API_CONTRACT.md`
+- `D:/dev/proje/Deepl/backend/src/routes/jobs.routes.ts`
+- `D:/dev/proje/Deepl/ios-client/LinguaFlowIOS/TranslateViewModel.swift`
