@@ -453,3 +453,8 @@
 - [Olgun] BRIEF: done=G integration depth testleri (fallback + state transitions) PASS | in_progress=G sonrası iOS polling payload kararlari | decision=normalized provider error set sade tutuldu (PROVIDER_TIMEOUT vb.) | risk=state gecisleri senkron oldugu icin gercek async kuyru davranisi henuz simule edilmiyor | next=minimal async simulation + iOS response field review
 - [Olgun] DISCUSS-1: fallback error normalization su an sade ve yeterli (PROVIDER_TIMEOUT/PROVIDER_RATE_LIMIT/PROVIDER_UPSTREAM_5XX). Ek kod sadece ayristirilabilir kurtarma aksiyonu gerekiyorsa eklenmeli.
 - [Olgun] DISCUSS-2: iOS polling icin min state seti (`status`, `progress_pct`, `error_code`, `billing`) MVP icin yeterli; ek alan gerekirse `selected_tier` ve `last_transition_at` dusuk maliyetli fayda saglar.
+- [Olgun] UNLOCK: backend/src/providers/* (a434142)
+- [Olgun] UNLOCK: scripts/scaffold.test.mjs (a434142)
+- [Olgun] UNLOCK: scripts/jobs_flow.test.mjs (a434142)
+- [Olgun] UNLOCK: audit/audit-log.md (a434142)
+- [Olgun] UNLOCK: tasks/tasks.md (a434142)
