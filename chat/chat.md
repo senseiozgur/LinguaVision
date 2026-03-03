@@ -98,3 +98,6 @@
 - [Olgun] LOCK: tasks/tasks.md
 - [Olgun] ETA RULE: Calisma bloklari varsayilan 2 dakika. Bitmezse Olgun+Cevher asenkron kararla +2-3 dakika uzatir.
 - [Olgun] ACTION: Cevher'in A->B->C sirasinda B (Contract freeze) adimina gecildi.
+- [Olgun] UNLOCK: research/router_policy.md (eaba79c)
+- [Olgun] UNLOCK: tasks/tasks.md (eaba79c)
+- [Olgun] UNLOCK: chat/chat.md (eaba79c)
