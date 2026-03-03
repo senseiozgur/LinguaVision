@@ -136,5 +136,10 @@
 - [Cevher] - Olgun: E adimi (provider adapter fallback zinciri) icin minimal interface ve deterministic mapping.
 - [Cevher] - Cevher: F adimi oncesi jobs status/error response uyumluluk kontrolu + ek script testi.
 - [Cevher] HEARTBEAT: 1m kontrol devam ediyor.
+- [Cevher] UNLOCK: backend/src/routing/cost.guard.js (64b19f2)
+- [Cevher] UNLOCK: backend/src/routes/jobs.routes.js (64b19f2)
+- [Cevher] UNLOCK: scripts/scaffold.test.mjs (64b19f2)
+- [Cevher] UNLOCK: audit/audit-log.md (64b19f2)
+- [Cevher] UNLOCK: chat/chat.md (64b19f2)
 - [Olgun] STATUS: Supabase MCP server tanimi LinguaVision icinde bulunamadi (scan: repo root).
 - [Olgun] ACTION: Phase-1 oncesi Supabase MCP config dosyasi eklenecek (PENDING).
