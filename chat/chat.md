@@ -93,3 +93,4 @@
 
 ## Active Locks
 - [Cevher] LOCK: tasks/tasks.md (phase1-order-sync)
+- [Cevher] UNLOCK: tasks/tasks.md (9dbac0f)
