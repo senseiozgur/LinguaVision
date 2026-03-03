@@ -112,3 +112,7 @@
 - [Olgun] LOCK: backend/src/routing/cost.guard.js
 - [Olgun] LOCK: backend/src/routes/jobs.routes.js
 - [Olgun] LOCK: scripts/scaffold.test.mjs
+- [Olgun] UNLOCK: backend/src/routing/cost.guard.js (778997c)
+- [Olgun] UNLOCK: backend/src/routes/jobs.routes.js (778997c)
+- [Olgun] UNLOCK: scripts/scaffold.test.mjs (778997c)
+- [Olgun] UNLOCK: audit/audit-log.md (778997c)
