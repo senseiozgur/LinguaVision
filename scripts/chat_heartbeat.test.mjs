@@ -21,6 +21,10 @@ try {
     "ACTION REQUEST",
     "Peer OK",
     "STATUS REQUEST",
+    "$AutoWaitStatus",
+    "WaitNotifySec",
+    "sirami bekliyorum, onay bekliyorum",
+    "BLOCKER=turn_not_assigned",
     "$AutoLive",
     "Write-LiveLine",
     "LIVE:"

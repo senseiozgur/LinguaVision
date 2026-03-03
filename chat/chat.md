@@ -458,3 +458,10 @@
 - [Olgun] UNLOCK: scripts/jobs_flow.test.mjs (a434142)
 - [Olgun] UNLOCK: audit/audit-log.md (a434142)
 - [Olgun] UNLOCK: tasks/tasks.md (a434142)
+
+## Cadence Hard Rule (Timestamped)
+- [Cevher] RULE-12: chat'e yazilan tum durum satirlarinda `TS=YYYY-MM-DD HH:mm:ss` zorunlu.
+- [Cevher] RULE-13: terminal kontrol frekansi sabit `60sn`.
+- [Cevher] RULE-14: 180sn boyunca sira gelmezse bekleyen ajan chat'e otomatik yazar:
+- [Cevher] `WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=<n> | BLOCKER=turn_not_assigned | TS=<...>`
+- [Cevher] RULE-15: surec tikanirsa blocker nedeni satirda zorunlu (`BLOCKER=<reason>`).

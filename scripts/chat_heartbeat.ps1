@@ -3,8 +3,10 @@ param(
   [ValidateSet("Cevher", "Olgun")]
   [string]$AgentName,
   [string]$ChatPath = "chat/chat.md",
-  [int]$IntervalSec = 20,
-  [int]$StaleSec = 120,
+  [int]$IntervalSec = 60,
+  [int]$StaleSec = 180,
+  [switch]$AutoWaitStatus,
+  [int]$WaitNotifySec = 180,
   [switch]$AutoLive,
   [int]$LiveEverySec = 120,
   [string]$Task = "sync",
@@ -28,9 +30,11 @@ $lastHash = ""
 $lastLineCount = 0
 $lastLiveAt = (Get-Date).AddSeconds(-1 * $LiveEverySec)
 $lastStaleAlertAt = Get-Date
+$lastTurnAt = Get-Date
+$lastWaitNoteAt = (Get-Date).AddSeconds(-1 * $WaitNotifySec)
 
 Write-Host "Heartbeat bridge started: agent=$AgentName other=$otherAgent interval=${IntervalSec}s stale=${StaleSec}s"
-Write-Host "Usage: keep this terminal open while coding. AutoLive=$AutoLive LiveEverySec=$LiveEverySec"
+Write-Host "Usage: keep this terminal open. AutoWaitStatus=$AutoWaitStatus WaitNotifySec=$WaitNotifySec AutoLive=$AutoLive"
 
 function Write-LiveLine([string]$message) {
   $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
@@ -58,6 +62,7 @@ while ($true) {
     } elseif ($hash -ne $lastHash) {
       $newLines = $lines[$lastLineCount..($lineCount - 1)] -join "`n"
       if ($newLines -match "ACTION REQUEST" -or $newLines -match "\[$AgentName\]") {
+        $lastTurnAt = Get-Date
         Write-Host "[$($ts.ToString('yyyy-MM-dd HH:mm:ss'))] AKSIYON: chat guncel, sana ilgili satir var."
       } else {
         Write-Host "[$($ts.ToString('yyyy-MM-dd HH:mm:ss'))] Kontrol: chat guncel."
@@ -81,6 +86,14 @@ while ($true) {
       }
     } else {
       Write-Host "[$($ts.ToString('yyyy-MM-dd HH:mm:ss'))] Peer WAIT: $otherAgent heartbeat dosyasi yok."
+    }
+
+    if ($AutoWaitStatus) {
+      $waitSec = [math]::Round(((Get-Date) - $lastTurnAt).TotalSeconds)
+      if ($waitSec -ge $WaitNotifySec -and ((Get-Date) - $lastWaitNoteAt).TotalSeconds -ge $WaitNotifySec) {
+        Write-LiveLine "WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=$waitSec | BLOCKER=turn_not_assigned"
+        $lastWaitNoteAt = Get-Date
+      }
     }
 
     $lastHash = $hash

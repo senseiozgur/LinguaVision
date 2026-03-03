@@ -105,3 +105,8 @@
   - PASS provider all-tier-fail -> FAILED + normalized error
   - PASS state transition PENDING->PROCESSING->READY
   - PASS failure path -> FAILED + PROVIDER_TIMEOUT
+- 2026-03-03T15:23:28+03:00 | scripts/chat_heartbeat.test.mjs | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS token: 60s control + 180s wait notify
+  - PASS token: WAITING message with BLOCKER reason
+  - PASS token: timestamped status format
