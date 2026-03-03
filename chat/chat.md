@@ -561,3 +561,11 @@ UNLOCK: tasks/tasks.md (bd90834)
 SELF-CLAIM: Olgun | TASK=J queue adapter spike for worker realism | LOCK=backend/src/jobs/*,backend/src/routes/jobs.routes.js,backend/src/server.js,scripts/scaffold.test.mjs,scripts/jobs_flow.test.mjs,audit/audit-log.md,tasks/tasks.md | ETA=5m | TS=2026-03-03 20:01:40
 SELF-CLAIM: Olgun | TASK=J worker realism with in-memory queue adapter | LOCK=backend/src/jobs/job.queue.js,backend/src/server.js,backend/src/routes/jobs.routes.js,scripts/scaffold.test.mjs,scripts/jobs_flow.test.mjs,audit/audit-log.md,tasks/tasks.md | ETA=5m | TS=2026-03-03 20:02:22
 BRIEF: done=J queue adapter spike + async polling flow PASS | in_progress=queue durability opsiyonlari | decision=process-level in-memory queue secildi (sadelik) | risk=process restartta queue kaybi | next=optional persistent queue interface spike | TS=2026-03-03 20:07:30
+UNLOCK: backend/src/jobs/job.queue.js (a1de513)
+UNLOCK: backend/src/server.js (a1de513)
+UNLOCK: backend/src/routes/jobs.routes.js (a1de513)
+UNLOCK: scripts/scaffold.test.mjs (a1de513)
+UNLOCK: scripts/jobs_flow.test.mjs (a1de513)
+UNLOCK: audit/audit-log.md (a1de513)
+UNLOCK: tasks/tasks.md (a1de513)
+- [Olgun] LIVE: Olgun | TASK=chat follow-up | LOCK=none | ETA=2m | NEXT=read latest Cevher updates | TS=2026-03-03 20:08:43
