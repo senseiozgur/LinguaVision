@@ -1,4 +1,4 @@
-# Repo Comparison (Phase-0)
+ï»¿# Repo Comparison (Phase-0)
 
 ## Scope
 - PDFMathTranslate/PDFMathTranslate: https://github.com/PDFMathTranslate/PDFMathTranslate
@@ -6,22 +6,35 @@
 - 4hmetziya/ProCeviriAI: https://github.com/4hmetziya/ProCeviriAI
 - Reference (read-only): senseiozgur/lingua-Deepl https://github.com/senseiozgur/lingua-Deepl
 
-## Comparison Table (Fikir / Mimari / Ürünlestirme)
+## Comparison Table (Fikir / Mimari / Urunlestirme)
 
-| Repo | Fikir | Mimari | Ürünlestirme | iOS-first Uygunluk | Maliyet Kontrolü | Kanit |
+| Repo | Fikir | Mimari | Urunlestirme | iOS-first Uygunluk | Maliyet Kontrolu | Kanit |
 |---|---|---|---|---|---|---|
-| PDFMathTranslate | Bilimsel PDF çevirisinde layout korumayi ana deger olarak konumluyor. | `pdf2zh/converter.py` + `pdf2zh/doclayout.py` ile layout siniflandirma, çoklu translator ve cache katmani var. | CLI + GUI + Docker + API referanslari mevcut. | Dogrudan iOS SDK yok; servislestirme yapildiginda iOS istemcisi baglanabilir. | Cache ve servis seçimi var ama paket bazli maliyet limiti yok. | `README.md:53`, `docs/ADVANCED.md:59-69`, `docs/ADVANCED.md:265-270`, `pdf2zh/translator.py:90-102`, `pdf2zh/converter.py:162-166` |
-| pdf-translator-for-human | Kullaniciyi sayfa bazli okuma + gerektiginde çeviri yaklasimina yönlendiriyor. | Streamlit tabanli tek uygulama; per-page çeviri + `.cached` klasör cache. | Kisisel kullanim odakli; API sözlesmesi/zorunlu is kuyrugu yok. | iOS-first için dogrudan uygun degil; backend servis katmani gerekir. | Google/OpenAI seçimi ve page-level cache var; bütçe/escalation guardrail yok. | `README.md:21-26`, `app.py:119-147`, `app.py:149-191`, `app.py:364-372`, `app.py:421-432` |
-| ProCeviriAI | Türkçe odakli PDF çeviri ve okunabilir font iyilestirmesi hedefliyor. | Flask benzeri tek dosya akis; Groq ana motor + Google fallback + chunk (10 satir). | Prototip seviyesinde; operational separation sinirli. | iOS-first için uygun hale getirilebilir ama önce modüler API ayrimi gerekir. | Retry + fallback var; ancak paket, tier veya toplam maliyet tavani kurali yok. | `README_UPDATE.md:8`, `app.py:343-427`, `app.py:879-885`, `app.py:537-547`, `app.py:1046-1080` |
-| lingua-Deepl (ref) | Provider-agnostic prensibi ve job lifecycle stabilitesini açik hedef yapiyor. | Ayrik katman: routes/job runner/provider factory/billing adapter/storage. | API sözlesmesi + testler + iOS istemci akisi mevcut. | iOS-first için en güçlü referans; async job modeli iOS polling ile uyumlu. | Deterministic charge/refund akisi var; fakat tek provider ve routing tier sistemi henüz yok. | `docs/PROJECT_INTENT_AND_LESSONS.md:16-22`, `backend/src/jobs/job.runner.ts:31-82`, `backend/src/providers/provider.factory.ts:14-25`, `docs/API_CONTRACT.md:32-148`, `ios-client/LinguaFlowIOS/TranslateViewModel.swift:35-89` |
+| PDFMathTranslate | Bilimsel PDF cevirisinde layout korumayi ana deger olarak konumluyor. | `pdf2zh/converter.py` + `pdf2zh/doclayout.py` ile layout siniflandirma, coklu translator ve cache katmani var. | CLI + GUI + Docker + API referanslari mevcut. | Dogrudan iOS SDK yok; servislestirme yapildiginda iOS istemcisi baglanabilir. | Cache ve servis secimi var ama paket bazli maliyet limiti yok. | `D:/dev/proje/LinguaVision/sources/PDFMathTranslate/README.md:53`, `D:/dev/proje/LinguaVision/sources/PDFMathTranslate/docs/ADVANCED.md:59-69`, `D:/dev/proje/LinguaVision/sources/PDFMathTranslate/docs/ADVANCED.md:265-270`, `D:/dev/proje/LinguaVision/sources/PDFMathTranslate/pdf2zh/translator.py:90-102`, `D:/dev/proje/LinguaVision/sources/PDFMathTranslate/pdf2zh/converter.py:162-166` |
+| pdf-translator-for-human | Kullaniciyi sayfa bazli okuma + gerektiginde ceviri yaklasimina yonlendiriyor. | Streamlit tabanli tek uygulama; per-page ceviri + `.cached` klasor cache. | Kisisel kullanim odakli; API sozlesmesi/zorunlu is kuyrugu yok. | iOS-first icin dogrudan uygun degil; backend servis katmani gerekir. | Google/OpenAI secimi ve page-level cache var; butce/escalation guardrail yok. | `D:/dev/proje/LinguaVision/sources/pdf-translator-for-human/README.md:21-26`, `D:/dev/proje/LinguaVision/sources/pdf-translator-for-human/app.py:119-147`, `D:/dev/proje/LinguaVision/sources/pdf-translator-for-human/app.py:149-191`, `D:/dev/proje/LinguaVision/sources/pdf-translator-for-human/app.py:364-372`, `D:/dev/proje/LinguaVision/sources/pdf-translator-for-human/app.py:421-432` |
+| ProCeviriAI | Turkce odakli PDF ceviri ve okunabilir font iyilestirmesi hedefliyor. | Flask benzeri tek dosya akis; Groq ana motor + Google fallback + chunk (10 satir). | Prototip seviyesinde; operational separation sinirli. | iOS-first icin uygun hale getirilebilir ama once moduler API ayrimi gerekir. | Retry + fallback var; ancak paket, tier veya toplam maliyet tavani kurali yok. | `D:/dev/proje/LinguaVision/sources/ProCeviriAI/README_UPDATE.md:8`, `D:/dev/proje/LinguaVision/sources/ProCeviriAI/app.py:343-427`, `D:/dev/proje/LinguaVision/sources/ProCeviriAI/app.py:879-885`, `D:/dev/proje/LinguaVision/sources/ProCeviriAI/app.py:537-547`, `D:/dev/proje/LinguaVision/sources/ProCeviriAI/app.py:1046-1080` |
+| lingua-Deepl (ref) | Provider-agnostic prensibi ve job lifecycle stabilitesini acik hedef yapiyor. | Ayrik katman: routes/job runner/provider factory/billing adapter/storage. | API sozlesmesi + testler + iOS istemci akisi mevcut. | iOS-first icin en guclu referans; async job modeli iOS polling ile uyumlu. | Deterministic charge/refund akisi var; fakat tek provider ve routing tier sistemi henuz yok. | `D:/dev/proje/Deepl/docs/PROJECT_INTENT_AND_LESSONS.md:16-22`, `D:/dev/proje/Deepl/backend/src/jobs/job.runner.ts:31-82`, `D:/dev/proje/Deepl/backend/src/providers/provider.factory.ts:14-25`, `D:/dev/proje/Deepl/docs/API_CONTRACT.md:32-148`, `D:/dev/proje/Deepl/ios-client/LinguaFlowIOS/TranslateViewModel.swift:35-89` |
 
 ## Key Decisions for LinguaVision
-- Layout koruma için temel teknik yön: PDFMathTranslate benzeri layout-aware extraction + controlled redraw (https://github.com/PDFMathTranslate/PDFMathTranslate, `pdf2zh/converter.py`, `pdf2zh/doclayout.py`).
-- Ürün omurgasi için temel yön: lingua-Deepl benzeri `jobs + provider adapter + billing adapter + storage` sade katmanlama (`backend/src/jobs/job.runner.ts`, `backend/src/routes/jobs.routes.ts`).
-- Maliyet ve fallback için: ProCeviriAI'deki aktif fallback fikri alinir, ancak kurallar `router_policy.md` içinde deterministic guardrail'e baglanir (`app.py:343-427`).
-- Sayfa bazli kademeli çeviri UX fikri korunur (pdf-translator-for-human `README.md:21-26`), fakat iOS tarafinda backend job API ile uygulanir.
+- Layout koruma icin temel teknik yon: PDFMathTranslate benzeri layout-aware extraction + controlled redraw.
+- Urun omurgasi icin temel yon: lingua-Deepl benzeri `jobs + provider adapter + billing adapter + storage` sade katmanlama.
+- Maliyet ve fallback icin: ProCeviriAI'deki fallback fikri alinacak, ama `research/router_policy.md` ile deterministik guardrail zorunlu olacak.
+- Sayfa bazli kademeli ceviri UX fikri korunacak, fakat iOS tarafinda backend job API ile uygulanacak.
+
+## Reusable Pieces (Directly Adopt / Avoid)
+- Adopt: `lingua-Deepl` job lifecycle ve API contract yapisi (`D:/dev/proje/Deepl/backend/src/routes/jobs.routes.ts`, `D:/dev/proje/Deepl/docs/API_CONTRACT.md`).
+- Adopt: `PDFMathTranslate` layout + cache kabiliyeti (`D:/dev/proje/LinguaVision/sources/PDFMathTranslate/pdf2zh/converter.py`, `D:/dev/proje/LinguaVision/sources/PDFMathTranslate/pdf2zh/translator.py:90-102`).
+- Adopt with constraints: `ProCeviriAI` retry/fallback fikri ama kuralsiz degil, policy tabanli (`D:/dev/proje/LinguaVision/sources/ProCeviriAI/app.py:343-427`).
+- Avoid: Tek dosya app icinde UI + routing + translate karmasasi (`D:/dev/proje/LinguaVision/sources/ProCeviriAI/app.py`).
+- Avoid: iOS'a dogrudan Streamlit baglama yaklasimi (`D:/dev/proje/LinguaVision/sources/pdf-translator-for-human/app.py`).
+
+## Final Selection (Phase-0)
+1. Core architecture baseline: `lingua-Deepl`.
+2. PDF fidelity strategy baseline: `PDFMathTranslate`.
+3. Runtime fallback inspiration: `ProCeviriAI` (policy-constrained).
+4. UX behavior inspiration: `pdf-translator-for-human` page-first consumption.
 
 ## Non-Goals (Phase-0)
 - Kod degisikligi yok.
-- Provider benchmark çalistirmasi yok.
-- Gerçek provider çagrisi yok.
+- Provider benchmark calistirmasi yok.
+- Gercek provider cagrisi yok.

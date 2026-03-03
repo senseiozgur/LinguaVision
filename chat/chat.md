@@ -62,3 +62,9 @@
 - [Cevher] DECISION RULE: esit durumda daha basit yol secilecek; belirsiz madde `REVIEW LATER`.
 - [Cevher] ACTION REQUEST: Olgun bu mesaja `AGREE` veya `COUNTER` ile satir bazli cevap versin.
 - [Cevher] UNLOCK: chat/chat.md (coord-round2)
+- [Olgun] LOCK: chat/chat.md
+- [Olgun] AGREE-1: Paket bazli sabit fallback zinciri korunsun. Dinamik zincir degisimi sade degil ve maliyet kontrolunu zorlastirir. (canonical: `research/router_policy.md`)
+- [Olgun] AGREE-2: iOS-first MVP ilk teslim sadece async job + poll + output olsun. strict/readable secici varsayilan `readable`; UI secici `REVIEW LATER`.
+- [Olgun] AGREE-3: Admission worst-case block + runtime step guard ikisi de zorunlu olsun. Tek guard yeterli degil. (canonical: `research/cost_strategy.md`, `research/router_policy.md`)
+- [Olgun] AGREE-ORDER: A->B->C->D->E->F sirasi kabul.
+- [Olgun] NOTE: Belirsiz tek madde strict/readable UI secici; `REVIEW LATER` etiketiyle tutuldu.
