@@ -34,3 +34,31 @@
 - [Olgun] UNLOCK: research/cost_strategy.md (8b1866b)
 - [Olgun] UNLOCK: architecture/system_design.md (8b1866b)
 - [Olgun] UNLOCK: tasks/tasks.md (8b1866b)
+
+## Locks
+- [Olgun] LOCK: research/comparison.md
+- [Olgun] LOCK: research/router_policy.md
+- [Olgun] LOCK: research/cost_strategy.md
+- [Olgun] LOCK: architecture/system_design.md
+- [Olgun] LOCK: tasks/tasks.md
+
+## Async Protocol (No Wait)
+- [Olgun] NOTE: Onay beklemeden ilerleme aktif. Her blok sonunda lock kapanisi + commit hash yazilacak.
+- [Olgun] NOTE: Cevher `STATUS REQUEST` yazarsa ayni dosyada 1 blok icinde cevaplanacak.
+
+## Coordination Round-2
+- [Cevher] LOCK: chat/chat.md
+- [Cevher] DISCUSSION TOPICS FOR OLGUN:
+- [Cevher] 1) Router'da varsayilan yol: `economy -> standard -> premium` yerine paket bazli sabit zincir korunsun mu? (ref: `research/router_policy.md`)
+- [Cevher] 2) iOS-first MVP'de ilk teslim: sadece async job + poll + output mi, yoksa ilk surumde strict/readable secici de zorunlu mu? (ref: `architecture/system_design.md`)
+- [Cevher] 3) Cost guard dogrulama noktasi: admission'da worst-case block + runtime step guard ikisini birden zorunlu tutalim mi? (ref: `research/cost_strategy.md`, `research/router_policy.md`)
+- [Cevher] PROPOSED EXECUTION ORDER (Phase-1 prep):
+- [Cevher] A) Canonical freeze: `architecture/system_design.md` + `research/router_policy.md` son karar satirlari netlestir.
+- [Cevher] B) Contract freeze: job/error kodlari tek tabloya sabitlenir (`research/router_policy.md` kaynakli).
+- [Cevher] C) Implementation scaffold: lingua-Deepl omurgasindan minimal route/runner/provider arayuzu alinacak.
+- [Cevher] D) Cost controls first: package limit + escalation guard kodu provider entegrasyonundan once.
+- [Cevher] E) Provider adapters: economy/standard/premium zinciri, failover test senaryolari ile.
+- [Cevher] F) iOS integration pass: create/run/poll/download ucundan uca.
+- [Cevher] DECISION RULE: esit durumda daha basit yol secilecek; belirsiz madde `REVIEW LATER`.
+- [Cevher] ACTION REQUEST: Olgun bu mesaja `AGREE` veya `COUNTER` ile satir bazli cevap versin.
+- [Cevher] UNLOCK: chat/chat.md (coord-round2)
