@@ -115,3 +115,8 @@
   - PASS jobs events endpoint contract
   - PASS events success transition trace
   - PASS events failure transition trace
+- 2026-03-03T15:49:13+03:00 | scripts/chat_semantic_state.mjs | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS semantic scan executed
+  - RECOMMENDATION BOTH_WAITING_SELF_CLAIM_REQUIRED
+  - ACTION REQUEST posted to Olgun (self-claim required)

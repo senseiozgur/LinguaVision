@@ -85,3 +85,7 @@
 - [x] `GET /jobs/:id/events` endpoint eklendi (state timeline).
 - [x] `npm run test:scaffold` PASS (events endpoint contract dahil).
 - [x] `npm run test:flow` PASS (success/failure transition traces dahil).
+
+## Coordination Guardrail
+- [x] Assignment waiting kaldirildi: ajanlar backlogdan `SELF-CLAIM` ile is alir.
+- [ ] Next: I (async queue simulation toggles + iOS polling payload review).
