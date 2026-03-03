@@ -89,3 +89,9 @@
 ## Coordination Guardrail
 - [x] Assignment waiting kaldirildi: ajanlar backlogdan `SELF-CLAIM` ile is alir.
 - [ ] Next: I (async queue simulation toggles + iOS polling payload review).
+
+## I Step Update (Olgun)
+- [x] Async queue simulation toggle eklendi (`async=1`, `worker_delay_ms`).
+- [x] iOS polling payload review: `selected_tier`, `last_transition_at` alanlari eklendi.
+- [x] `npm run test:scaffold` PASS.
+- [x] `npm run test:flow` PASS.

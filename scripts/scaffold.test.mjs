@@ -99,6 +99,8 @@ const hasJobsGetContract =
   jobsRoute.includes("status: job.status") &&
   jobsRoute.includes("progress_pct: job.progress_pct") &&
   jobsRoute.includes("error_code: job.error_code") &&
+  jobsRoute.includes("selected_tier: job.selected_tier") &&
+  jobsRoute.includes("last_transition_at: job.last_transition_at") &&
   jobsRoute.includes("billing: job.billing");
 const hasJobsErrorCodes =
   jobsRoute.includes("{ error: \"job_not_found\" }") &&
@@ -107,6 +109,10 @@ const hasJobsErrorCodes =
 const hasEventsEndpoint =
   jobsRoute.includes("router.get(\"/:id/events\"") &&
   jobsRoute.includes("deps.jobs.getEvents");
+const hasAsyncToggleWiring =
+  jobsRoute.includes("const asyncMode = req.query?.async === \"1\"") &&
+  jobsRoute.includes("worker_delay_ms") &&
+  jobsRoute.includes("void processJob");
 
 notes.push(`${hasAdmissionGuard ? "PASS" : "FAIL"} admission guard wiring`);
 notes.push(`${hasRuntimeGuard ? "PASS" : "FAIL"} runtime guard wiring`);
@@ -116,6 +122,7 @@ notes.push(`${hasJobsRunContract ? "PASS" : "FAIL"} jobs run response contract`)
 notes.push(`${hasJobsGetContract ? "PASS" : "FAIL"} jobs get response state contract`);
 notes.push(`${hasJobsErrorCodes ? "PASS" : "FAIL"} jobs error code contract`);
 notes.push(`${hasEventsEndpoint ? "PASS" : "FAIL"} jobs events endpoint contract`);
+notes.push(`${hasAsyncToggleWiring ? "PASS" : "FAIL"} async queue simulation wiring`);
 if (
   !hasAdmissionGuard ||
   !hasRuntimeGuard ||
@@ -124,7 +131,8 @@ if (
   !hasJobsRunContract ||
   !hasJobsGetContract ||
   !hasJobsErrorCodes ||
-  !hasEventsEndpoint
+  !hasEventsEndpoint ||
+  !hasAsyncToggleWiring
 ) {
   pass = false;
 }

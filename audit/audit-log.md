@@ -120,3 +120,8 @@
   - PASS semantic scan executed
   - RECOMMENDATION BOTH_WAITING_SELF_CLAIM_REQUIRED
   - ACTION REQUEST posted to Olgun (self-claim required)
+- 2026-03-03T18:46:17+03:00 | npm run test:scaffold && npm run test:flow | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS async queue simulation wiring
+  - PASS async worker-delay simulation for polling
+  - PASS iOS payload fields selected_tier + last_transition_at

@@ -5,8 +5,73 @@ import { getTierMultiplier, planRoute } from "../providers/provider.router.js";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function createJobsRouter(deps) {
   const router = express.Router();
+
+  async function processJob({ jobId, simulateFailTier, simulateFailTiers, workerDelayMs }) {
+    const job = deps.jobs.get(jobId);
+    if (!job) return { ok: false, error: "job_not_found" };
+
+    if (workerDelayMs > 0) {
+      await sleep(workerDelayMs);
+    }
+
+    const inBytes = await deps.storage.readFile(job.input_file_path);
+    const route = planRoute({ packageName: job.package_name || "free", mode: job.mode || "readable" });
+    const baseStepUnits = estimateStepUnits({ fileSizeBytes: inBytes.length, mode: route.mode });
+    const spentUnits = job.billing?.charged_units || 0;
+    let lastError = "ROUTER_NO_FALLBACK_PATH";
+
+    for (const tier of route.chain) {
+      const stepUnits = Math.ceil(baseStepUnits * getTierMultiplier(tier));
+      const runtimeGuard = validateRuntimeStep({
+        packageName: route.packageName,
+        spentUnits,
+        stepUnits
+      });
+
+      if (!runtimeGuard.ok) {
+        lastError = runtimeGuard.error;
+        continue;
+      }
+
+      const translated = await deps.providerAdapter.translateDocument({
+        inputBuffer: inBytes,
+        tier,
+        mode: route.mode,
+        simulateFailTier,
+        simulateFailTiers
+      });
+
+      if (!translated.ok) {
+        lastError = translated.error || "PROVIDER_TIMEOUT";
+        continue;
+      }
+
+      const outPath = await deps.storage.saveOutput(job.id, translated.outputBuffer);
+      deps.jobs.update(job.id, {
+        status: "READY",
+        progress_pct: 100,
+        output_file_path: outPath,
+        selected_tier: tier,
+        billing: { charged_units: spentUnits + stepUnits, charged: true }
+      });
+
+      return { ok: true };
+    }
+
+    deps.jobs.update(job.id, {
+      status: "FAILED",
+      progress_pct: 100,
+      error_code: lastError
+    });
+
+    return { ok: false, error: lastError };
+  }
 
   router.post("/", upload.single("file"), async (req, res) => {
     const file = req.file;
@@ -55,59 +120,22 @@ export function createJobsRouter(deps) {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
+    const workerDelayMs = Math.max(0, Number(req.query?.worker_delay_ms || 0));
+    const asyncMode = req.query?.async === "1";
 
     deps.jobs.update(job.id, { status: "PROCESSING", progress_pct: 30 });
-    const inBytes = await deps.storage.readFile(job.input_file_path);
 
-    const route = planRoute({ packageName: job.package_name || "free", mode: job.mode || "readable" });
-    const baseStepUnits = estimateStepUnits({ fileSizeBytes: inBytes.length, mode: route.mode });
-    let spentUnits = job.billing?.charged_units || 0;
-    let lastError = "ROUTER_NO_FALLBACK_PATH";
-
-    for (const tier of route.chain) {
-      const stepUnits = Math.ceil(baseStepUnits * getTierMultiplier(tier));
-      const runtimeGuard = validateRuntimeStep({
-        packageName: route.packageName,
-        spentUnits,
-        stepUnits
-      });
-      if (!runtimeGuard.ok) {
-        lastError = runtimeGuard.error;
-        continue;
-      }
-
-      const translated = await deps.providerAdapter.translateDocument({
-        inputBuffer: inBytes,
-        tier,
-        mode: route.mode,
-        simulateFailTier,
-        simulateFailTiers
-      });
-
-      if (!translated.ok) {
-        lastError = translated.error || "PROVIDER_TIMEOUT";
-        continue;
-      }
-
-      const outPath = await deps.storage.saveOutput(job.id, translated.outputBuffer);
-      deps.jobs.update(job.id, {
-        status: "READY",
-        progress_pct: 100,
-        output_file_path: outPath,
-        selected_tier: tier,
-        billing: { charged_units: spentUnits + stepUnits, charged: true }
-      });
-
+    if (asyncMode) {
+      void processJob({ jobId: job.id, simulateFailTier, simulateFailTiers, workerDelayMs });
       return res.status(202).json({ accepted: true, job_id: job.id, status: "PROCESSING" });
     }
 
-    deps.jobs.update(job.id, {
-      status: "FAILED",
-      progress_pct: 100,
-      error_code: lastError
-    });
+    const result = await processJob({ jobId: job.id, simulateFailTier, simulateFailTiers, workerDelayMs });
+    if (!result.ok) {
+      return res.status(409).json({ error: result.error });
+    }
 
-    return res.status(409).json({ error: lastError });
+    return res.status(202).json({ accepted: true, job_id: job.id, status: "PROCESSING" });
   });
 
   router.get("/:id", (req, res) => {
@@ -118,6 +146,8 @@ export function createJobsRouter(deps) {
       status: job.status,
       progress_pct: job.progress_pct,
       error_code: job.error_code,
+      selected_tier: job.selected_tier,
+      last_transition_at: job.last_transition_at,
       billing: job.billing
     });
   });

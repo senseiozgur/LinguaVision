@@ -77,6 +77,8 @@ async function main() {
     assert(getRes.status === 200, `get status expected 200 got ${getRes.status}`);
     const job = await getRes.json();
     assert(job.status === "READY" && Number.isFinite(job.progress_pct), "job state expected READY");
+    assert(typeof job.selected_tier === "string", "selected_tier should be present");
+    assert(typeof job.last_transition_at === "string", "last_transition_at should be present");
     notes.push("PASS GET /jobs/:id READY state transition");
 
     const eventsRes = await fetch(`${baseUrl}/jobs/${created.job_id}/events`);
@@ -153,6 +155,24 @@ async function main() {
     const failOutputRes = await fetch(`${baseUrl}/jobs/${failJob.job_id}/output`);
     assert(failOutputRes.status === 409, `failed output expected 409 got ${failOutputRes.status}`);
     notes.push("PASS failed output contract job_not_ready");
+
+    // Async queue simulation toggle: PROCESSING visible before READY
+    const asyncCreateRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 9999 });
+    assert(asyncCreateRes.status === 201, `async create expected 201 got ${asyncCreateRes.status}`);
+    const asyncJob = await asyncCreateRes.json();
+    const asyncRunRes = await fetch(
+      `${baseUrl}/jobs/${asyncJob.job_id}/run?async=1&worker_delay_ms=250`,
+      { method: "POST" }
+    );
+    assert(asyncRunRes.status === 202, `async run expected 202 got ${asyncRunRes.status}`);
+    const midRes = await fetch(`${baseUrl}/jobs/${asyncJob.job_id}`);
+    const midJob = await midRes.json();
+    assert(midJob.status === "PROCESSING", `mid state expected PROCESSING got ${midJob.status}`);
+    await wait(350);
+    const doneRes = await fetch(`${baseUrl}/jobs/${asyncJob.job_id}`);
+    const doneJob = await doneRes.json();
+    assert(doneJob.status === "READY", `final async state expected READY got ${doneJob.status}`);
+    notes.push("PASS async worker-delay simulation for polling");
 
     const notFoundRes = await fetch(`${baseUrl}/jobs/nope/run`, { method: "POST" });
     assert(notFoundRes.status === 404, `run missing job expected 404 got ${notFoundRes.status}`);
