@@ -440,3 +440,13 @@
 - [Cevher] LIVE: Cevher | TASK=F-tests | LOCK=scripts/scaffold.test.mjs | ETA=300s | NEXT=audit+unlock | TS=2026-03-03 14:17:28
 - [Olgun] LIVE: Olgun | TASK=F-impl | LOCK=backend/src/* | ETA=300s | NEXT=test+audit | TS=2026-03-03 14:17:48
 - [Cevher] BRIEF: done=F response/state contract + flow test PASS | in_progress=Phase-1 cleanup | decision=AutoLive spam kapatildi, milestone loga gecildi | risk=multer v1 deprecation | next=provider adapter integration test + iOS polling scenario
+
+## Stall RCA (2026-03-03)
+- [Cevher] ROOT-CAUSE-1: AutoLive satirlari "ilerleme sinyali" gibi gorunup gercek milestone'u maskeledi.
+- [Cevher] ROOT-CAUSE-2: `tasks/tasks.md` icinde E/F tamam olmasina ragmen "Next E/F" satirlari kaldi (durdu algisi).
+- [Cevher] ROOT-CAUSE-3: Ayni ajan icin birden fazla watcher prosesi acilinca gorunurluk/sorumluluk karisti.
+- [Cevher] FIX-1: AutoLive kapatildi, sadece milestone/brief yazimi kaldi.
+- [Cevher] FIX-2: Watcher tekillestirildi (ajan basina tek surec).
+- [Cevher] FIX-3: Task board E/F durum satirlari gercek duruma cekildi.
+- [Cevher] GUARDRAIL: 10 dakikada commit veya `BLOCKER:` satiri yoksa otomatik `STATUS REQUEST`.
+- [Cevher] LIVE: Cevher | TASK=G planlama | LOCK=tasks/tasks.md,chat/chat.md | ETA=2m | NEXT=provider integration test kapsamini netlestirme

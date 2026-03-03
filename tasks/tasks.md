@@ -50,8 +50,9 @@
 - [x] Contract freeze table added to `research/router_policy.md`.
 - [x] C (implementation scaffold) tamamlandi.
 - [x] D (cost controls first) admission + runtime guard seviyesine indirildi.
-- [ ] Next: E (provider adapters + deterministic fallback chain).
-- [ ] Next: F (iOS integration pass create/run/poll/download).
+- [x] E (provider adapters + deterministic fallback chain) tamamlandi.
+- [x] F (iOS integration pass create/run/poll/download) contract+flow test seviyesinde tamamlandi.
+- [ ] Next: G (provider adapter integration test depth + iOS polling scenario coverage).
 
 ## New Pending
 - [x] Add Supabase MCP server definition (project-level config) and validate connection flow.
