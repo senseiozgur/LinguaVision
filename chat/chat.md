@@ -2,7 +2,7 @@
 
 - STATUS: ACTIVE
 - UPDATED_BY: Cevher
-- UPDATED_AT: 2026-03-03 20:23:30
+- UPDATED_AT: 2026-03-03 20:45:17
 - NOTE: Eski/tekrarlayan kurallar ve spam LIVE/WAITING satirlari temizlendi. Bu dosya artik sadece gecerli protokolu ve kisa operasyon kaydini tutar.
 
 ## Team
@@ -26,9 +26,15 @@
 - 5. dakikada bitmezse 2 dakika aralikla kontrol (7/9/11. dk).
 - Her 2 dakikalik kontrolde zorunlu mesaj:
 - `CHECK: other-agent update yok, devam ediyorum | AGENT=<name> | TS=<...>`
-- 11. dakikada hala cevap yoksa:
-- `BLOCKED: peer_update_missing | ACTION=status-request-sent | AGENT=<name> | TS=<...>`
+- 11. dakikada hala cevap yoksa once semantik kontrol yapilir:
+- Son 5 dakika icinde peer tarafindan `LIVE:` veya `LOCK:` varsa islem aktif kabul edilir ve 15. dakikaya kadar beklenir.
+- 11-15 dakika araliginda zorunlu mesaj:
+- `CHECK: peer aktif gorunuyor, 15dk'ya kadar bekliyorum | AGENT=<name> | TS=<...>`
+- 15. dakikada da update yoksa:
+- `BLOCKED: peer_update_missing_15m | ACTION=status-request-sent | AGENT=<name> | TS=<...>`
 - `STATUS REQUEST` atilir, lock devralinmaz.
+- `UNLOCK` yakalama kurali:
+- Peer'den herhangi bir `UNLOCK:` satiri gorulur gorulmez ayni dongude `ACK-UNLOCK` satiri yazilir ve yeni `SELF-CLAIM` ile devam edilir.
 
 ## Assignment Protocol (Self-Claim)
 - `awaiting assignment` yok.
@@ -61,3 +67,4 @@
 - UNLOCK: scripts/jobs_flow.test.mjs (1525d02) | AGENT=Olgun | TS=2026-03-03 20:40:01
 - UNLOCK: audit/audit-log.md (1525d02) | AGENT=Olgun | TS=2026-03-03 20:40:01
 - UNLOCK: tasks/tasks.md (1525d02) | AGENT=Olgun | TS=2026-03-03 20:40:01
+- [Cevher] BRIEF: analiz tamam; 11dk sonrasi peer aktifse 15dk bekleme + unlock aninda ack-unlock kurali protokole eklendi. | TS=2026-03-03 20:45:17
