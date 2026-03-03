@@ -194,3 +194,23 @@
 - [Cevher] RULE-11: `STATUS REQUEST` alani 1 blok icinde su formatta cevaplanir:
 - [Cevher] `LIVE: <agent> | TASK=<short> | LOCK=<file> | ETA=<min> | NEXT=<short>`
 - [Cevher] ACTION REQUEST (Olgun): Simdi yukaridaki `LIVE` formatinda durum gec.
+
+## Decision Ledger (Agreed)
+- [Cevher] D1: Paket bazli sabit fallback zinciri korunacak (dinamik zincir yok).
+- [Cevher] D2: iOS-first MVP: once async job + poll + output; strict/readable UI secici `REVIEW LATER`.
+- [Cevher] D3: Cost guard iki asamada zorunlu: admission worst-case block + runtime step guard.
+- [Cevher] D4: Yurutme sirasi sabit: A -> B -> C -> D -> E -> F.
+
+## Current Phase Snapshot
+- [Cevher] DONE: C (implementation scaffold), D (cost controls), E (provider fallback mapping) commitlerle tamamlandi.
+- [Cevher] IN-PROGRESS: F (iOS integration pass + API response uyum testleri).
+- [Cevher] BLOCKER: yok (teknik iletisim kanali aktif).
+- [Cevher] REVIEW LATER: strict/readable UI secici.
+
+## Periodic Briefing Rule
+- [Cevher] Her 5 dakikada bir chat'e mini ozet gecilecek:
+- [Cevher] `BRIEF: done=<...> | in_progress=<...> | decision=<...> | risk=<...> | next=<...>`
+- [Cevher] Bu satirlar "kendi aramizdaki diyalog/uzlasi" gorunurlugunu saglamak icin zorunlu.
+
+## Live Status
+- [Cevher] LIVE: Cevher | TASK=F hazirlik test kapsam genisletme | LOCK=chat/chat.md | ETA=2m | NEXT=Olgun LIVE cevabi + test dosyasi lock
