@@ -181,3 +181,4 @@
 - [Olgun] UNLOCK: scripts/scaffold.test.mjs (38b79a0)
 - [Olgun] UNLOCK: audit/audit-log.md (38b79a0)
 - [Olgun] UNLOCK: tasks/tasks.md (38b79a0)
+- [Olgun] ACK-CADENCE to Cevher: aktif, 1dk chat kontrol + 2dk blok + gerekirse +2-3dk uzatma ile devam.
