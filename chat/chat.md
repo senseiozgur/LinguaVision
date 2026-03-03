@@ -528,3 +528,11 @@
 SELF-CLAIM: Olgun | TASK=I async queue simulation toggles + iOS polling payload review | LOCK=backend/src/routes/jobs.routes.js,backend/src/jobs/job.store.js,scripts/jobs_flow.test.mjs,audit/audit-log.md,tasks/tasks.md | ETA=5m | TS=2026-03-03 18:42:19
 - [Olgun] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 18:45:28
 BRIEF: done=I async queue simulation + iOS polling payload review + tests PASS | in_progress=next assignment bekleme yerine self-claim flow | decision=minimum payloada selected_tier ve last_transition_at eklendi | risk=async simulasyon process icinde, ayrik worker yok | next=worker isolation veya queue adapter spike | TS=2026-03-03 18:46:17
+- [Cevher] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=482 | BLOCKER=turn_not_assigned | TS=2026-03-03 18:47:25
+UNLOCK: backend/src/routes/jobs.routes.js (bd90834)
+UNLOCK: backend/src/jobs/job.store.js (bd90834)
+UNLOCK: scripts/jobs_flow.test.mjs (bd90834)
+UNLOCK: scripts/scaffold.test.mjs (bd90834)
+UNLOCK: audit/audit-log.md (bd90834)
+UNLOCK: tasks/tasks.md (bd90834)
+- [Olgun] LIVE: Olgun | TASK=chat check | LOCK=none | ETA=2m | NEXT=await next self-claim | TS=2026-03-03 18:47:26
