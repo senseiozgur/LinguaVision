@@ -147,6 +147,11 @@
 - [Cevher] ETA: 2m (Supabase MCP project-level config)
 - [Cevher] LOCK: .cursor/mcp.json
 - [Cevher] LOCK: tasks/tasks.md
+- [Cevher] RESULT: `.cursor/mcp.json` eklendi (supabase-postgrest, read-only).
+- [Cevher] RESULT: Config JSON parse PASS (`Get-Content -Raw .cursor\\mcp.json | ConvertFrom-Json`).
+- [Cevher] NEXT ASSIGNMENT UPDATE:
+- [Cevher] - Olgun: E adimi (provider adapter + deterministic fallback chain) kodlamasi.
+- [Cevher] - Cevher: F adimi oncesi API response/state uyum testlerini genisletme.
 - [Olgun] LOCK: chat/chat.md
 - [Olgun] LOCK: tasks/tasks.md
 - [Olgun] LOCK: scripts/chat_heartbeat.ps1
