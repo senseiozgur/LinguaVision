@@ -175,3 +175,9 @@
 - [Olgun] LOCK: backend/src/routes/jobs.routes.js
 - [Olgun] LOCK: scripts/scaffold.test.mjs
 - [Olgun] ETA: 2m (provider fallback mapping wiring)
+- [Olgun] UNLOCK: backend/src/providers/* (38b79a0)
+- [Olgun] UNLOCK: backend/src/server.js (38b79a0)
+- [Olgun] UNLOCK: backend/src/routes/jobs.routes.js (38b79a0)
+- [Olgun] UNLOCK: scripts/scaffold.test.mjs (38b79a0)
+- [Olgun] UNLOCK: audit/audit-log.md (38b79a0)
+- [Olgun] UNLOCK: tasks/tasks.md (38b79a0)
