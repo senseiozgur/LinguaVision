@@ -1,6 +1,10 @@
-﻿param(
+param(
+  [Parameter(Mandatory = $true)]
+  [ValidateSet("Cevher", "Olgun")]
+  [string]$AgentName,
   [string]$ChatPath = "chat/chat.md",
-  [int]$IntervalSec = 60
+  [int]$IntervalSec = 60,
+  [int]$StaleSec = 180
 )
 
 if (-not (Test-Path $ChatPath)) {
@@ -8,26 +12,66 @@ if (-not (Test-Path $ChatPath)) {
   exit 1
 }
 
+$otherAgent = if ($AgentName -eq "Cevher") { "Olgun" } else { "Cevher" }
+$coordDir = ".coord/heartbeats"
+$selfHeartbeat = Join-Path $coordDir "$AgentName.json"
+$otherHeartbeat = Join-Path $coordDir "$otherAgent.json"
+
+New-Item -ItemType Directory -Force -Path $coordDir | Out-Null
+
 $lastHash = ""
-Write-Host "Heartbeat watcher started. interval=${IntervalSec}s file=$ChatPath"
+$lastLineCount = 0
+
+Write-Host "Heartbeat bridge started: agent=$AgentName other=$otherAgent interval=${IntervalSec}s stale=${StaleSec}s"
+Write-Host "Usage: keep this terminal open while coding."
 
 while ($true) {
   try {
+    $ts = Get-Date
     $hash = (Get-FileHash -Algorithm SHA256 -Path $ChatPath).Hash
-    $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
+    $lines = Get-Content -Path $ChatPath
+    $lineCount = $lines.Count
+
+    $payload = @{
+      agent = $AgentName
+      ts_utc = $ts.ToUniversalTime().ToString("o")
+      chat_hash = $hash
+      line_count = $lineCount
+      pid = $PID
+    } | ConvertTo-Json -Compress
+    Set-Content -Path $selfHeartbeat -Value $payload
 
     if ($lastHash -eq "") {
-      Write-Host "[$ts] Kontrol ettim: sira bende, ilerliyorum. (ilk okuma)"
+      Write-Host "[$($ts.ToString('yyyy-MM-dd HH:mm:ss'))] Kontrol: basladi (ilk okuma)."
     } elseif ($hash -ne $lastHash) {
-      Write-Host "[$ts] Kontrol ettim: sira bende, ilerliyorum. (chat guncel)"
+      $newLines = $lines[$lastLineCount..($lineCount - 1)] -join "`n"
+      if ($newLines -match "ACTION REQUEST" -or $newLines -match "\[$AgentName\]") {
+        Write-Host "[$($ts.ToString('yyyy-MM-dd HH:mm:ss'))] AKSIYON: chat guncel, sana ilgili satir var."
+      } else {
+        Write-Host "[$($ts.ToString('yyyy-MM-dd HH:mm:ss'))] Kontrol: chat guncel."
+      }
     } else {
-      Write-Host "[$ts] Kontrol ettim: bekliyorum."
+      Write-Host "[$($ts.ToString('yyyy-MM-dd HH:mm:ss'))] Kontrol: degisiklik yok."
+    }
+
+    if (Test-Path $otherHeartbeat) {
+      $other = Get-Content -Raw $otherHeartbeat | ConvertFrom-Json
+      $otherTs = [DateTimeOffset]::Parse($other.ts_utc).ToLocalTime()
+      $ageSec = [math]::Round(((Get-Date) - $otherTs.DateTime).TotalSeconds)
+      if ($ageSec -gt $StaleSec) {
+        Write-Host "[$($ts.ToString('yyyy-MM-dd HH:mm:ss'))] ALERT: $otherAgent heartbeat stale (${ageSec}s). STATUS REQUEST yaz."
+      } else {
+        Write-Host "[$($ts.ToString('yyyy-MM-dd HH:mm:ss'))] Peer OK: $otherAgent aktif (${ageSec}s)."
+      }
+    } else {
+      Write-Host "[$($ts.ToString('yyyy-MM-dd HH:mm:ss'))] Peer WAIT: $otherAgent heartbeat dosyasi yok."
     }
 
     $lastHash = $hash
+    $lastLineCount = $lineCount
   } catch {
     $ts = (Get-Date).ToString("yyyy-MM-dd HH:mm:ss")
-    Write-Host "[$ts] FAIL: chat kontrol hatasi -> $($_.Exception.Message)"
+    Write-Host "[$ts] FAIL: heartbeat loop -> $($_.Exception.Message)"
   }
 
   Start-Sleep -Seconds $IntervalSec

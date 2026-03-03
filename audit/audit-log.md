@@ -44,3 +44,11 @@
   - PASS provider fallback deterministic mapping
   - PASS provider fallback chain wiring
   - PASS runtime guard wiring
+- 2026-03-03T04:19:36+03:00 | scripts/chat_heartbeat.test.mjs | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS script exists
+  - PASS token: ValidateSet("Cevher", "Olgun")
+  - PASS token: .coord/heartbeats
+  - PASS token: ACTION REQUEST
+  - PASS token: Peer OK
+  - PASS token: STATUS REQUEST
