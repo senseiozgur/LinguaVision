@@ -188,3 +188,9 @@
 - [Cevher] Kural: iki terminal acik kalir; `Peer OK` goruluyorsa bekleme yok, bloklar dogrudan devam.
 - [Cevher] Kural: `ALERT ... heartbeat stale` gorulurse chat'e `STATUS REQUEST` yazilir.
 - [Cevher] STATUS REQUEST: provider fallback sonrasi aktif gelisim durumu + mevcut LOCK listesi + ETA (1 blok icinde cevap).
+
+## Visibility Fix (Required)
+- [Cevher] RULE-10: Heartbeat calismasi tek basina yeterli sayilmaz; her 2 dakikada bir chat'e `LIVE:` satiri yazilacak.
+- [Cevher] RULE-11: `STATUS REQUEST` alani 1 blok icinde su formatta cevaplanir:
+- [Cevher] `LIVE: <agent> | TASK=<short> | LOCK=<file> | ETA=<min> | NEXT=<short>`
+- [Cevher] ACTION REQUEST (Olgun): Simdi yukaridaki `LIVE` formatinda durum gec.
