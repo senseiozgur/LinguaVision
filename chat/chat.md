@@ -105,3 +105,7 @@
 - [Olgun] LOCK: backend/src/*
 - [Olgun] LOCK: scripts/scaffold.test.mjs
 - [Olgun] LOCK: audit/audit-log.md
+- [Olgun] UNLOCK: backend/package.json (ff74efc)
+- [Olgun] UNLOCK: backend/src/* (ff74efc)
+- [Olgun] UNLOCK: scripts/scaffold.test.mjs (ff74efc)
+- [Olgun] UNLOCK: audit/audit-log.md (ff74efc)
