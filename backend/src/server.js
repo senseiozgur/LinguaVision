@@ -4,6 +4,7 @@ import express from "express";
 import { createJobsRouter } from "./routes/jobs.routes.js";
 import { JobStore } from "./jobs/job.store.js";
 import { LocalStorage } from "./storage/local.storage.js";
+import { createProviderAdapter } from "./providers/provider.adapter.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,8 +12,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const jobs = new JobStore();
 const storage = new LocalStorage(path.resolve(__dirname, "../storage-data"));
+const providerAdapter = createProviderAdapter();
 
-app.use("/jobs", createJobsRouter({ jobs, storage }));
+app.use("/jobs", createJobsRouter({ jobs, storage, providerAdapter }));
 
 const port = process.env.PORT || 8787;
 app.listen(port, () => {

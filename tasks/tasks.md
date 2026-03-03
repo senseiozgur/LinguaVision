@@ -60,3 +60,7 @@
 - [x] Heartbeat protocol synced in `chat/chat.md`.
 - [x] 60s chat watcher script added (`scripts/chat_heartbeat.ps1`).
 - [ ] Runtime usage: keep watcher running during active implementation windows.
+
+## Progress Update
+- [x] E adimi tamamlandi: provider adapter + deterministic fallback chain wiring (`backend/src/providers/*`, `backend/src/routes/jobs.routes.js`).
+- [ ] F adimi bekliyor: iOS integration pass ve response uyum test genisletme.

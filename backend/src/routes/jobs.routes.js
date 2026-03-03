@@ -1,6 +1,7 @@
-import express from "express";
+﻿import express from "express";
 import multer from "multer";
 import { estimateStepUnits, validateAdmission, validateRuntimeStep } from "../routing/cost.guard.js";
+import { getTierMultiplier, planRoute } from "../providers/provider.router.js";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -50,30 +51,55 @@ export function createJobsRouter(deps) {
 
     deps.jobs.update(job.id, { status: "PROCESSING", progress_pct: 30 });
     const inBytes = await deps.storage.readFile(job.input_file_path);
-    const stepUnits = estimateStepUnits({ fileSizeBytes: inBytes.length, mode: job.mode || "readable" });
-    const runtimeGuard = validateRuntimeStep({
-      packageName: job.package_name || "free",
-      spentUnits: job.billing?.charged_units || 0,
-      stepUnits
-    });
-    if (!runtimeGuard.ok) {
-      deps.jobs.update(job.id, {
-        status: "FAILED",
-        progress_pct: 100,
-        error_code: runtimeGuard.error
+
+    const route = planRoute({ packageName: job.package_name || "free", mode: job.mode || "readable" });
+    const baseStepUnits = estimateStepUnits({ fileSizeBytes: inBytes.length, mode: route.mode });
+    let spentUnits = job.billing?.charged_units || 0;
+    let lastError = "ROUTER_NO_FALLBACK_PATH";
+
+    for (const tier of route.chain) {
+      const stepUnits = Math.ceil(baseStepUnits * getTierMultiplier(tier));
+      const runtimeGuard = validateRuntimeStep({
+        packageName: route.packageName,
+        spentUnits,
+        stepUnits
       });
-      return res.status(409).json({ error: runtimeGuard.error });
+      if (!runtimeGuard.ok) {
+        lastError = runtimeGuard.error;
+        continue;
+      }
+
+      const translated = await deps.providerAdapter.translateDocument({
+        inputBuffer: inBytes,
+        tier,
+        mode: route.mode,
+        simulateFailTier: req.body?.simulate_fail_tier || null
+      });
+
+      if (!translated.ok) {
+        lastError = translated.error || "PROVIDER_TIMEOUT";
+        continue;
+      }
+
+      const outPath = await deps.storage.saveOutput(job.id, translated.outputBuffer);
+      deps.jobs.update(job.id, {
+        status: "READY",
+        progress_pct: 100,
+        output_file_path: outPath,
+        selected_tier: tier,
+        billing: { charged_units: spentUnits + stepUnits, charged: true }
+      });
+
+      return res.status(202).json({ accepted: true, job_id: job.id, status: "PROCESSING" });
     }
 
-    const outPath = await deps.storage.saveOutput(job.id, inBytes);
     deps.jobs.update(job.id, {
-      status: "READY",
+      status: "FAILED",
       progress_pct: 100,
-      output_file_path: outPath,
-      billing: { charged_units: (job.billing?.charged_units || 0) + stepUnits, charged: true }
+      error_code: lastError
     });
 
-    return res.status(202).json({ accepted: true, job_id: job.id, status: "PROCESSING" });
+    return res.status(409).json({ error: lastError });
   });
 
   router.get("/:id", (req, res) => {

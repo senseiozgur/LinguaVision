@@ -1,7 +1,8 @@
-import fs from "fs";
+﻿import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { estimateStepUnits, validateAdmission, validateRuntimeStep } from "../backend/src/routing/cost.guard.js";
+import { getFallbackChain, getTierMultiplier, planRoute } from "../backend/src/providers/provider.router.js";
 
 function assert(cond, msg) {
   if (!cond) throw new Error(msg);
@@ -17,7 +18,9 @@ const required = [
   "backend/src/routes/jobs.routes.js",
   "backend/src/jobs/job.store.js",
   "backend/src/storage/local.storage.js",
-  "backend/src/routing/cost.guard.js"
+  "backend/src/routing/cost.guard.js",
+  "backend/src/providers/provider.router.js",
+  "backend/src/providers/provider.adapter.js"
 ];
 
 let pass = true;
@@ -63,6 +66,19 @@ try {
   notes.push(`FAIL runtime guard: ${err.message}`);
 }
 
+try {
+  assert(getFallbackChain("free").join(">") === "economy>standard", "free chain mismatch");
+  assert(getFallbackChain("pro").join(">") === "standard>premium>economy", "pro chain mismatch");
+  assert(getFallbackChain("premium").join(">") === "premium>standard>economy", "premium chain mismatch");
+  assert(getTierMultiplier("premium") > getTierMultiplier("economy"), "tier multiplier mismatch");
+  const plan = planRoute({ packageName: "pro", mode: "strict" });
+  assert(plan.maxEscalations === 2, "maxEscalations mismatch");
+  notes.push("PASS provider fallback deterministic mapping");
+} catch (err) {
+  pass = false;
+  notes.push(`FAIL provider fallback mapping: ${err.message}`);
+}
+
 const jobsRoute = fs.readFileSync(path.join(root, "backend/src/routes/jobs.routes.js"), "utf8");
 const hasAdmissionGuard =
   jobsRoute.includes("validateAdmission") &&
@@ -71,10 +87,14 @@ const hasAdmissionGuard =
 const hasRuntimeGuard =
   jobsRoute.includes("validateRuntimeStep") &&
   jobsRoute.includes("runtimeGuard.error");
+const hasFallbackChain =
+  jobsRoute.includes("planRoute") &&
+  jobsRoute.includes("for (const tier of route.chain)");
 
 notes.push(`${hasAdmissionGuard ? "PASS" : "FAIL"} admission guard wiring`);
 notes.push(`${hasRuntimeGuard ? "PASS" : "FAIL"} runtime guard wiring`);
-if (!hasAdmissionGuard || !hasRuntimeGuard) pass = false;
+notes.push(`${hasFallbackChain ? "PASS" : "FAIL"} provider fallback chain wiring`);
+if (!hasAdmissionGuard || !hasRuntimeGuard || !hasFallbackChain) pass = false;
 
 console.log(pass ? "PASS" : "FAIL");
 console.log("AUDIT SUMMARY:");

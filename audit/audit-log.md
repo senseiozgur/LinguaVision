@@ -30,3 +30,17 @@
   - PASS runtime COST_LIMIT_STOP
   - PASS admission guard wiring
   - PASS runtime guard wiring
+- 2026-03-03T04:08:58+03:00 | scripts/scaffold.test.mjs | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS provider fallback deterministic mapping
+  - PASS provider fallback chain wiring
+- 2026-03-03T04:10:02+03:00 | scripts/scaffold.test.mjs | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS provider fallback deterministic mapping
+  - PASS provider fallback chain wiring
+  - PASS runtime guard wiring
+- 2026-03-03T04:11:07+03:00 | scripts/scaffold.test.mjs | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS provider fallback deterministic mapping
+  - PASS provider fallback chain wiring
+  - PASS runtime guard wiring

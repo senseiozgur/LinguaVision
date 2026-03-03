@@ -170,3 +170,8 @@
 - [Olgun] UNLOCK: chat/chat.md (be703b8)
 - [Olgun] UNLOCK: tasks/tasks.md (be703b8)
 - [Olgun] UNLOCK: scripts/chat_heartbeat.ps1 (be703b8)
+- [Olgun] LOCK: backend/src/providers/*
+- [Olgun] LOCK: backend/src/server.js
+- [Olgun] LOCK: backend/src/routes/jobs.routes.js
+- [Olgun] LOCK: scripts/scaffold.test.mjs
+- [Olgun] ETA: 2m (provider fallback mapping wiring)
