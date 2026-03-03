@@ -92,3 +92,8 @@
 - LIVE: Cevher | TASK=M retry policy simulation | LOCK=backend/src/routes/jobs.routes.js,backend/src/providers/provider.adapter.js,scripts/jobs_flow.test.mjs,audit/audit-log.md,tasks/tasks.md | NEXT=implement+test+audit+brief | TS=2026-03-03 21:47:12
 - CHECK: peer aktif gorunuyor, 15dk penceresi icinde bekliyorum; takeover criteria=peer_update_missing_15m | AGENT=Olgun | TS=2026-03-03 21:50:44
 - BRIEF: done=M retry policy simulation + flow coverage tamamlandi; in_progress=commit+push; risk=low (retry sim test-only query param); next=unlock with commit hash | AGENT=Cevher | TS=2026-03-03 21:51:46
+- UNLOCK: backend/src/routes/jobs.routes.js (57ef303) | AGENT=Cevher | TS=2026-03-03 21:52:25
+- UNLOCK: backend/src/providers/provider.adapter.js (57ef303) | AGENT=Cevher | TS=2026-03-03 21:52:25
+- UNLOCK: scripts/jobs_flow.test.mjs (57ef303) | AGENT=Cevher | TS=2026-03-03 21:52:25
+- UNLOCK: audit/audit-log.md (57ef303) | AGENT=Cevher | TS=2026-03-03 21:52:25
+- UNLOCK: tasks/tasks.md (57ef303) | AGENT=Cevher | TS=2026-03-03 21:52:25
