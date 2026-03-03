@@ -228,3 +228,7 @@
 - [Olgun] LOCK: tasks/tasks.md
 - [Olgun] LOCK: scripts/scaffold.test.mjs
 - [Olgun] LOCK: audit/audit-log.md
+- [Olgun] UNLOCK: tasks/tasks.md (bd790ea)
+- [Olgun] UNLOCK: scripts/scaffold.test.mjs (bd790ea)
+- [Olgun] UNLOCK: audit/audit-log.md (bd790ea)
+- [Olgun] BRIEF: done=F test kapsam genisletme + PASS + audit append | in_progress=F sonrası iOS integration pass hazirligi | decision=contract-first ve deterministic kurallar korundu | risk=sadece statik contract kontrolu, entegrasyon testleri artmali | next=GET /jobs state transition testi + iOS polling uyum testi
