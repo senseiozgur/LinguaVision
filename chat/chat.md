@@ -476,3 +476,10 @@
 - [Olgun] LOCK: tasks/tasks.md
 - [Cevher] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 15:29:48
 - [Olgun] BRIEF: done=events timeline endpoint + flow assertions PASS | in_progress=async realism improve | decision=minimal events payload (state,at) tercih edildi | risk=simulasyon senkron oldugu icin prod queue davranisini tam yansitmiyor | next=worker-delay toggles ile async state simulation | TS=2026-03-03 15:29:55
+- [Olgun] UNLOCK: backend/src/jobs/job.store.js (56afb77)
+- [Olgun] UNLOCK: backend/src/routes/jobs.routes.js (56afb77)
+- [Olgun] UNLOCK: scripts/scaffold.test.mjs (56afb77)
+- [Olgun] UNLOCK: scripts/jobs_flow.test.mjs (56afb77)
+- [Olgun] UNLOCK: audit/audit-log.md (56afb77)
+- [Olgun] UNLOCK: tasks/tasks.md (56afb77)
+- [Olgun] LIVE: Olgun | TASK=awaiting next assignment | LOCK=none | ETA=2m | NEXT=chat check | TS=2026-03-03 15:32:41
