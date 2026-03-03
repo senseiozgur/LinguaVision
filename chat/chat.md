@@ -57,3 +57,7 @@
 - SELF-CLAIM: K queue ordering + polling consistency | FILES=scripts/jobs_flow.test.mjs,audit/audit-log.md,tasks/tasks.md | AGENT=Olgun | TS=2026-03-03 20:34:25
 - LOCK: scripts/jobs_flow.test.mjs | AGENT=Olgun | TS=2026-03-03 20:34:25
 - LOCK: audit/audit-log.md | AGENT=Olgun | TS=2026-03-03 20:34:25
+- BRIEF: done=K queue ordering + polling consistency testlandi; in_progress=next backlog secimi; risk=low (single-worker varsayimi); next=L adimi (error normalization/table hardening) | TS=2026-03-03 20:40:01
+- UNLOCK: scripts/jobs_flow.test.mjs (1525d02) | AGENT=Olgun | TS=2026-03-03 20:40:01
+- UNLOCK: audit/audit-log.md (1525d02) | AGENT=Olgun | TS=2026-03-03 20:40:01
+- UNLOCK: tasks/tasks.md (1525d02) | AGENT=Olgun | TS=2026-03-03 20:40:01
