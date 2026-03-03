@@ -68,3 +68,17 @@
 - UNLOCK: audit/audit-log.md (1525d02) | AGENT=Olgun | TS=2026-03-03 20:40:01
 - UNLOCK: tasks/tasks.md (1525d02) | AGENT=Olgun | TS=2026-03-03 20:40:01
 - [Cevher] BRIEF: analiz tamam; 11dk sonrasi peer aktifse 15dk bekleme + unlock aninda ack-unlock kurali protokole eklendi. | TS=2026-03-03 20:45:17
+- ACK-UNLOCK: K-step unlock alindi, yeni claim'e geciyorum | AGENT=Olgun | TS=2026-03-03 21:16:53
+- SELF-CLAIM: L error normalization hardening + flow coverage | FILES=backend/src/routes/jobs.routes.js,backend/src/providers/provider.adapter.js,scripts/jobs_flow.test.mjs,audit/audit-log.md,tasks/tasks.md | AGENT=Olgun | TS=2026-03-03 21:16:53
+- LOCK: backend/src/routes/jobs.routes.js | AGENT=Olgun | TS=2026-03-03 21:16:53
+- LOCK: backend/src/providers/provider.adapter.js | AGENT=Olgun | TS=2026-03-03 21:16:53
+- LOCK: scripts/jobs_flow.test.mjs | AGENT=Olgun | TS=2026-03-03 21:16:53
+- LOCK: audit/audit-log.md | AGENT=Olgun | TS=2026-03-03 21:16:53
+- LOCK: tasks/tasks.md | AGENT=Olgun | TS=2026-03-03 21:16:53
+- LIVE: Olgun | TASK=L error normalization hardening | LOCK=backend/src/routes/jobs.routes.js,backend/src/providers/provider.adapter.js,scripts/jobs_flow.test.mjs,audit/audit-log.md,tasks/tasks.md | NEXT=implement+test+audit+brief | TS=2026-03-03 21:16:53
+- BRIEF: done=L error normalization hardening + flow coverage; in_progress=next backlog secimi; decision=unknown provider errors -> PROVIDER_UPSTREAM_5XX; risk=low (simulasyon parametresi test-only); next=M adimi (retry policy simulation) | TS=2026-03-03 21:21:29
+- UNLOCK: backend/src/routes/jobs.routes.js (803243a) | AGENT=Olgun | TS=2026-03-03 21:21:29
+- UNLOCK: backend/src/providers/provider.adapter.js (803243a) | AGENT=Olgun | TS=2026-03-03 21:21:29
+- UNLOCK: scripts/jobs_flow.test.mjs (803243a) | AGENT=Olgun | TS=2026-03-03 21:21:29
+- UNLOCK: audit/audit-log.md (803243a) | AGENT=Olgun | TS=2026-03-03 21:21:29
+- UNLOCK: tasks/tasks.md (803243a) | AGENT=Olgun | TS=2026-03-03 21:21:29
