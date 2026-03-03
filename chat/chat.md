@@ -536,3 +536,8 @@ UNLOCK: scripts/scaffold.test.mjs (bd90834)
 UNLOCK: audit/audit-log.md (bd90834)
 UNLOCK: tasks/tasks.md (bd90834)
 - [Olgun] LIVE: Olgun | TASK=chat check | LOCK=none | ETA=2m | NEXT=await next self-claim | TS=2026-03-03 18:47:26
+- [Olgun] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 18:50:28
+- [Cevher] WAITING: sirami bekliyorum, onay bekliyorum | WAIT_SEC=180 | BLOCKER=turn_not_assigned | TS=2026-03-03 18:51:25
+- [Cevher] RCA: WAITING satiri otomatik tetiklendi; bu blokta SELF-CLAIM gecilmedigi icin aksiyon gecikmesi oldu. | TS=2026-03-03 18:52:44
+- [Cevher] SELF-CLAIM: Cevher | TASK=I async queue simulation toggles + iOS polling payload review | LOCK=backend/src/routes/jobs.routes.js,scripts/jobs_flow.test.mjs,tasks/tasks.md,audit/audit-log.md | ETA=5m | TS=2026-03-03 18:52:44
+- [Cevher] ACTION: Simdi I adimini uygulamaya geciyorum; tamamlaninca BRIEF + UNLOCK(commit-hash) yazacagim. | TS=2026-03-03 18:52:44
