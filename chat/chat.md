@@ -130,3 +130,11 @@ TASK: LV-13 iOS contract snapshot + compatibility guard
 OUTPUT: iOS contract snapshot json freeze edildi; route payload uyumlulugunu dogrulayan guard test eklendi
 PROOF: cmd=npm run test:scaffold; npm run test:flow; npm run test:audit-compact; npm run test:ios-contract | result=PASS/PASS/PASS/PASS | files=research/ios_contract_snapshot.json,scripts/ios_contract_compat.test.mjs,backend/package.json
 NEXT: LV-14 provider performance baseline + timeout policy tuning
+
+[TS=2026-03-04T12:40:58+03:00] AGENT=Cevher
+
+[TS=2026-03-04T12:42:27+03:00] AGENT=Cevher
+TASK: LV-14 provider performance baseline + timeout tuning
+OUTPUT: provider perf sayaclari metrics'e eklendi; simulate_provider_latency_ms ve provider_timeout_ms ile timeout policy tuning aktif
+PROOF: cmd=npm run test:scaffold; npm run test:flow; npm run test:audit-compact; npm run test:ios-contract | result=PASS/PASS/PASS/PASS | files=backend/src/providers/provider.adapter.js,backend/src/routes/jobs.routes.js,research/ios_contract_snapshot.json
+NEXT: LV-15 reliability playbook + rollback toggles

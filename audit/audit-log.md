@@ -194,3 +194,8 @@
   - PASS LV-13 iOS contract snapshot compatibility guard
   - PASS full regression and telemetry/cache/quality-gate stack
   - PASS contract fields remain backward-compatible for iOS polling
+- 2026-03-04T12:40:20+03:00 | npm run test:scaffold && npm run test:flow && npm run test:audit-compact && npm run test:ios-contract | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS LV-14 provider perf counters and timeout tuning
+  - PASS outage/timeout matrix coverage in flow test
+  - PASS iOS contract snapshot updated for provider perf fields

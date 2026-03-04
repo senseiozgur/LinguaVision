@@ -130,6 +130,7 @@ const hasMetricsEndpoint =
   jobsRoute.includes("provider_retry_total") &&
   jobsRoute.includes("provider_fallback_total") &&
   jobsRoute.includes("runtime_guard_block_total") &&
+  jobsRoute.includes("provider_timeout_ms") &&
   jobsRoute.includes("queue_depth") &&
   jobsRoute.includes("getCacheMetrics");
 const hasAsyncToggleWiring =
@@ -155,6 +156,9 @@ const hasUxHintMappingWiring =
   jobsRoute.includes("function mapErrorToUxHint(errorCode)") &&
   jobsRoute.includes("retry_or_fallback") &&
   jobsRoute.includes("ux_hint: mapErrorToUxHint(lastError)");
+const hasProviderTimeoutSimulationWiring =
+  jobsRoute.includes("simulate_provider_latency_ms") &&
+  jobsRoute.includes("provider_timeout_ms");
 const hasLayoutPipelineWiring =
   providerAdapter.includes("runLayoutPipeline") &&
   providerAdapter.includes("layoutMetrics") &&
@@ -184,6 +188,7 @@ notes.push(`${hasLayoutPipelineWiring ? "PASS" : "FAIL"} layout pipeline wiring`
 notes.push(`${hasTranslationCacheWiring ? "PASS" : "FAIL"} translation cache wiring`);
 notes.push(`${hasStrictQualityGateWiring ? "PASS" : "FAIL"} strict quality gate wiring`);
 notes.push(`${hasUxHintMappingWiring ? "PASS" : "FAIL"} ux hint mapping wiring`);
+notes.push(`${hasProviderTimeoutSimulationWiring ? "PASS" : "FAIL"} provider timeout simulation wiring`);
 if (
   !hasAdmissionGuard ||
   !hasRuntimeGuard ||
@@ -201,7 +206,8 @@ if (
   !hasLayoutPipelineWiring ||
   !hasTranslationCacheWiring ||
   !hasStrictQualityGateWiring ||
-  !hasUxHintMappingWiring
+  !hasUxHintMappingWiring ||
+  !hasProviderTimeoutSimulationWiring
 ) {
   pass = false;
 }

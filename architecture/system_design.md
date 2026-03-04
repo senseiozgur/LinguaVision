@@ -115,6 +115,10 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - iOS contract snapshot frozen in `research/ios_contract_snapshot.json`.
 - Compatibility guard test added (`scripts/ios_contract_compat.test.mjs`).
 
+### LV-14 Status
+- Provider performance counters exposed (`provider_calls_total`, `provider_success_total`, `provider_fail_total`, `provider_latency_avg_ms`).
+- Timeout policy tuning supported via run-time query knobs (`simulate_provider_latency_ms`, `provider_timeout_ms`).
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`

@@ -67,6 +67,8 @@ export function createJobsRouter(deps) {
     simulateRetryOnceTiers,
     simulateLayoutMissingAnchorCount,
     simulateLayoutOverflowCount,
+    simulateProviderLatencyMs,
+    providerTimeoutMs,
     workerDelayMs
   }) {
     const job = deps.jobs.get(jobId);
@@ -112,6 +114,8 @@ export function createJobsRouter(deps) {
           simulateRetryOnceTiers,
           simulateLayoutMissingAnchorCount,
           simulateLayoutOverflowCount,
+          simulateProviderLatencyMs,
+          providerTimeoutMs,
           jobId: job.id,
           sourceLang: job.source_lang || null,
           targetLang: job.target_lang || null
@@ -241,9 +245,16 @@ export function createJobsRouter(deps) {
       Number(req.query?.simulate_layout_missing_anchor_count || 0)
     );
     const simulateLayoutOverflowCount = Math.max(0, Number(req.query?.simulate_layout_overflow_count || 0));
+    const simulateProviderLatencyMs = Math.max(0, Number(req.query?.simulate_provider_latency_ms || 0));
+    const providerTimeoutMs = Math.max(1, Number(req.query?.provider_timeout_ms || 2500));
     const workerDelayRaw = Number(req.query?.worker_delay_ms || 0);
     if (!Number.isFinite(workerDelayRaw)) return res.status(400).json({ error: "invalid_input" });
-    if (!Number.isFinite(simulateLayoutMissingAnchorCount) || !Number.isFinite(simulateLayoutOverflowCount)) {
+    if (
+      !Number.isFinite(simulateLayoutMissingAnchorCount) ||
+      !Number.isFinite(simulateLayoutOverflowCount) ||
+      !Number.isFinite(simulateProviderLatencyMs) ||
+      !Number.isFinite(providerTimeoutMs)
+    ) {
       return res.status(400).json({ error: "invalid_input" });
     }
     const workerDelayMs = Math.max(0, workerDelayRaw);
@@ -271,6 +282,8 @@ export function createJobsRouter(deps) {
           simulateRetryOnceTiers,
           simulateLayoutMissingAnchorCount,
           simulateLayoutOverflowCount,
+          simulateProviderLatencyMs,
+          providerTimeoutMs,
           workerDelayMs
         });
       } else {
@@ -282,6 +295,8 @@ export function createJobsRouter(deps) {
           simulateRetryOnceTiers,
           simulateLayoutMissingAnchorCount,
           simulateLayoutOverflowCount,
+          simulateProviderLatencyMs,
+          providerTimeoutMs,
           workerDelayMs
         });
       }
@@ -296,6 +311,8 @@ export function createJobsRouter(deps) {
       simulateRetryOnceTiers,
       simulateLayoutMissingAnchorCount,
       simulateLayoutOverflowCount,
+      simulateProviderLatencyMs,
+      providerTimeoutMs,
       workerDelayMs
     });
     if (!result.ok) {

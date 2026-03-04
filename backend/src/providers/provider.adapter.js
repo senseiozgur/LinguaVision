@@ -13,12 +13,22 @@ function normalizeProviderError(code) {
   return "PROVIDER_UPSTREAM_5XX";
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export function createProviderAdapter({ cacheMaxEntries = 200, cachePersistPath = null } = {}) {
   const transientFailureSeen = new Set();
   const translationCache = new TranslationCache({
     maxEntries: cacheMaxEntries,
     persistPath: cachePersistPath
   });
+  const perf = {
+    provider_calls_total: 0,
+    provider_success_total: 0,
+    provider_fail_total: 0,
+    provider_latency_total_ms: 0
+  };
 
   function makeCacheKey({ inputBuffer, tier, mode, sourceLang, targetLang }) {
     const h = createHash("sha256");
@@ -38,10 +48,14 @@ export function createProviderAdapter({ cacheMaxEntries = 200, cachePersistPath 
       simulateRetryOnceTiers = [],
       simulateLayoutMissingAnchorCount = 0,
       simulateLayoutOverflowCount = 0,
+      simulateProviderLatencyMs = 0,
+      providerTimeoutMs = 2500,
       jobId = null,
       sourceLang = null,
       targetLang = null
     }) {
+      const startedAt = Date.now();
+      perf.provider_calls_total += 1;
       const failSet = new Set(simulateFailTiers || []);
       const retryOnceSet = new Set(simulateRetryOnceTiers || []);
       const hasSimulationControls = Boolean(simulateFailTier) || failSet.size > 0 || retryOnceSet.size > 0;
@@ -50,17 +64,32 @@ export function createProviderAdapter({ cacheMaxEntries = 200, cachePersistPath 
       const shouldFailOnce = retryOnceSet.has(tier) && !transientFailureSeen.has(transientKey);
       if (shouldFail) {
         const code = normalizeProviderError(simulateFailCode);
+        perf.provider_fail_total += 1;
+        perf.provider_latency_total_ms += Date.now() - startedAt;
         return { ok: false, error: code, tier };
       }
       if (shouldFailOnce) {
         transientFailureSeen.add(transientKey);
+        perf.provider_fail_total += 1;
+        perf.provider_latency_total_ms += Date.now() - startedAt;
         return { ok: false, error: normalizeProviderError("PROVIDER_TIMEOUT"), tier };
+      }
+
+      if (simulateProviderLatencyMs > 0) {
+        await sleep(simulateProviderLatencyMs);
+      }
+      if (simulateProviderLatencyMs > providerTimeoutMs) {
+        perf.provider_fail_total += 1;
+        perf.provider_latency_total_ms += Date.now() - startedAt;
+        return { ok: false, error: "PROVIDER_TIMEOUT", tier };
       }
 
       const cacheKey = makeCacheKey({ inputBuffer, tier, mode, sourceLang, targetLang });
       if (!hasSimulationControls) {
         const cached = translationCache.get(cacheKey);
         if (cached) {
+          perf.provider_success_total += 1;
+          perf.provider_latency_total_ms += Date.now() - startedAt;
           return {
             ok: true,
             tier,
@@ -85,6 +114,8 @@ export function createProviderAdapter({ cacheMaxEntries = 200, cachePersistPath 
           layoutMetrics: pipeline.layoutMetrics
         });
       }
+      perf.provider_success_total += 1;
+      perf.provider_latency_total_ms += Date.now() - startedAt;
       return {
         ok: true,
         tier,
@@ -95,7 +126,13 @@ export function createProviderAdapter({ cacheMaxEntries = 200, cachePersistPath 
       };
     },
     getCacheMetrics() {
-      return translationCache.metrics();
+      const avgLatency =
+        perf.provider_calls_total > 0 ? Math.round(perf.provider_latency_total_ms / perf.provider_calls_total) : 0;
+      return {
+        ...translationCache.metrics(),
+        ...perf,
+        provider_latency_avg_ms: avgLatency
+      };
     }
   };
 }

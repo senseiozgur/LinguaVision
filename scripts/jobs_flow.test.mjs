@@ -324,6 +324,19 @@ async function main() {
     );
     notes.push("PASS provider upstream outage matrix mapping");
 
+    // Timeout policy tuning: simulated provider latency above threshold should fail as timeout
+    const timeoutCreateRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 9999 });
+    assert(timeoutCreateRes.status === 201, `timeout create expected 201 got ${timeoutCreateRes.status}`);
+    const timeoutJob = await timeoutCreateRes.json();
+    const timeoutRunRes = await fetch(
+      `${baseUrl}/jobs/${timeoutJob.job_id}/run?simulate_provider_latency_ms=40&provider_timeout_ms=1`,
+      { method: "POST" }
+    );
+    assert(timeoutRunRes.status === 409, `timeout run expected 409 got ${timeoutRunRes.status}`);
+    const timeoutRun = await timeoutRunRes.json();
+    assert(timeoutRun.error === "PROVIDER_TIMEOUT", `timeout run expected PROVIDER_TIMEOUT got ${timeoutRun.error}`);
+    notes.push("PASS provider timeout policy tuning via query params");
+
     // Retry policy simulation: same tier one retry should recover without fallback
     const retryCreateRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
     assert(retryCreateRes.status === 201, `retry create expected 201 got ${retryCreateRes.status}`);
@@ -422,6 +435,8 @@ async function main() {
     assert(typeof metrics.provider_fallback_total === "number", "metrics provider_fallback_total should be number");
     assert(typeof metrics.jobs_ready_total === "number", "metrics jobs_ready_total should be number");
     assert(typeof metrics.jobs_failed_total === "number", "metrics jobs_failed_total should be number");
+    assert(typeof metrics.provider_calls_total === "number", "metrics provider_calls_total should be number");
+    assert(typeof metrics.provider_latency_avg_ms === "number", "metrics provider_latency_avg_ms should be number");
     assert(metrics.provider_retry_total >= 1, "metrics provider_retry_total should be >=1");
     assert(metrics.provider_fallback_total >= 1, "metrics provider_fallback_total should be >=1");
     notes.push("PASS /jobs/metrics minimal observability contract");

@@ -2,7 +2,7 @@
 
 MODE: SINGLE_AGENT
 OWNER: Cevher
-ACTIVE_TASK: LV-14 provider performance baselines and timeout policy tuning
+ACTIVE_TASK: LV-15 reliability playbook and rollback toggles
 LAST_SYNC_BRANCH: main
 LAST_COMMIT: pending
 LAST_PUSH: pending
@@ -14,6 +14,6 @@ LAST_PUSH: pending
 4. Commit -> pull --rebase -> push.
 
 ## Last Update
-- TS: 1772616676
-- SUMMARY: LV-13 iOS contract snapshot + compatibility guard completed.
-- NEXT_STEP: establish provider performance baseline metrics and timeout tuning knobs.
+- TS: 1772617386
+- SUMMARY: LV-14 provider performance baseline + timeout tuning completed.
+- NEXT_STEP: define rollback toggles and reliability playbook checks.

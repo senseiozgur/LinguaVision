@@ -34,7 +34,8 @@ try {
 
   for (const field of snapshot.endpoints.get_metrics.success) {
     const hasDirect = routes.includes(field);
-    const hasViaSpread = field.startsWith("cache_") && routes.includes("getCacheMetrics");
+    const hasViaSpread =
+      (field.startsWith("cache_") || field.startsWith("provider_")) && routes.includes("getCacheMetrics");
     assert(hasDirect || hasViaSpread, `missing metrics field ${field}`);
   }
   notes.push("PASS metrics payload fields compatible");
