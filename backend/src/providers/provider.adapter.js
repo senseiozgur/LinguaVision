@@ -36,6 +36,8 @@ export function createProviderAdapter({ cacheMaxEntries = 200, cachePersistPath 
       simulateFailTiers = [],
       simulateFailCode = "PROVIDER_TIMEOUT",
       simulateRetryOnceTiers = [],
+      simulateLayoutMissingAnchorCount = 0,
+      simulateLayoutOverflowCount = 0,
       jobId = null,
       sourceLang = null,
       targetLang = null
@@ -71,6 +73,12 @@ export function createProviderAdapter({ cacheMaxEntries = 200, cachePersistPath 
       }
 
       const pipeline = runLayoutPipeline({ inputBuffer, mode });
+      if (simulateLayoutMissingAnchorCount > 0) {
+        pipeline.layoutMetrics.missing_anchor_count = Number(simulateLayoutMissingAnchorCount);
+      }
+      if (simulateLayoutOverflowCount > 0) {
+        pipeline.layoutMetrics.overflow_count = Number(simulateLayoutOverflowCount);
+      }
       if (!hasSimulationControls) {
         translationCache.set(cacheKey, {
           outputBuffer: pipeline.outputBuffer,

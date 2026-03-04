@@ -27,7 +27,8 @@
 - [x] LV-08 PDF layout quality metrics and cache keying hardening
 - [x] LV-09 cache persistence strategy + eviction policy
 - [x] LV-10 provider retry/fallback telemetry and audit compaction
-- [ ] LV-11 strict/readable processing quality gates and cost-delta exposure
+- [x] LV-11 strict/readable processing quality gates and cost-delta exposure
+- [ ] LV-12 provider outage simulation matrix and iOS UX mapping hardening
 
 ## Auto Loop (No Human Wait)
 1. Pick next top task.
@@ -51,3 +52,5 @@
   evidence: `backend/src/providers/translation.cache.js`, `backend/src/providers/provider.adapter.js`, `backend/src/server.js`, `backend/src/routes/jobs.routes.js`
 - [x] LV-10 telemetry counters and audit compaction script landed.
   evidence: `backend/src/routes/jobs.routes.js`, `scripts/jobs_flow.test.mjs`, `scripts/audit_compact.mjs`, `backend/package.json`
+- [x] LV-11 strict quality gate and cost-delta visibility landed.
+  evidence: `backend/src/routes/jobs.routes.js`, `backend/src/jobs/job.store.js`, `scripts/jobs_flow.test.mjs`, `scripts/scaffold.test.mjs`

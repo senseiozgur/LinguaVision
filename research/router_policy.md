@@ -27,7 +27,7 @@
 - `pages/size_mb` paket limitlerini asiyorsa `INPUT_LIMIT_EXCEEDED`.
 - `worst_case_units > remaining_units` ise `COST_GUARD_BLOCK`.
 2. Initial provider tier:
-- mode=strict ise `default tier` korunur, auto-downgrade kapali.
+- mode=strict ise sadece `default tier` kullanilir (single-tier), auto-downgrade kapali.
 - mode=readable ise maliyet baskisinda downgrade izinli.
 3. Runtime failure handling:
 - `PROVIDER_RATE_LIMIT`, `PROVIDER_TIMEOUT`, `PROVIDER_UPSTREAM_5XX` -> ayni tier icinde 1 retry.
@@ -41,6 +41,9 @@
 6. Provider outage fallback:
 - Saglayici hard-down ise izinli siraya gore bir sonraki tier/provider denenir.
 - Failover sonrasi toplam maliyet her adimda yeniden dogrulanir.
+7. Layout quality gate (strict only):
+- `missing_anchor_count > 0` veya `overflow_count > 0` ise `LAYOUT_QUALITY_GATE_BLOCK`.
+- strict modda quality gate fail olursa fallback uygulanmaz; islem `FAILED` kapanir.
 
 ## Decision Scenarios
 
@@ -51,6 +54,7 @@
 | S3 | Pro / strict | standard quality fail + budget var | premium escalation |
 | S4 | Pro / strict | premium fail + budget yok | standard veya economy downgrade, gerekirse `COST_LIMIT_STOP` |
 | S5 | Premium / readable | premium rate-limit + retry fail | standard fallback, sonra economy |
+| S6 | Pro / strict | missing anchors/overflow | `LAYOUT_QUALITY_GATE_BLOCK` |
 
 ## Error Code Contract
 - `INPUT_LIMIT_EXCEEDED`
@@ -61,6 +65,7 @@
 - `PROVIDER_RATE_LIMIT`
 - `PROVIDER_TIMEOUT`
 - `PROVIDER_UPSTREAM_5XX`
+- `LAYOUT_QUALITY_GATE_BLOCK`
 
 ## iOS Response Mapping
 - `INPUT_LIMIT_EXCEEDED` -> kullaniciya plan limiti uyarisi + yukseltilmis paket CTA

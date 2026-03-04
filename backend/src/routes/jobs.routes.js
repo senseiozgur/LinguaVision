@@ -56,6 +56,8 @@ export function createJobsRouter(deps) {
     simulateFailTiers,
     simulateFailCode,
     simulateRetryOnceTiers,
+    simulateLayoutMissingAnchorCount,
+    simulateLayoutOverflowCount,
     workerDelayMs
   }) {
     const job = deps.jobs.get(jobId);
@@ -71,9 +73,11 @@ export function createJobsRouter(deps) {
     const spentUnits = job.billing?.charged_units || 0;
     let lastError = "ROUTER_NO_FALLBACK_PATH";
 
-    for (let chainIndex = 0; chainIndex < route.chain.length; chainIndex++) {
-      const tier = route.chain[chainIndex];
+    const effectiveChain = route.mode === "strict" ? [route.chain[0]] : route.chain;
+    for (let chainIndex = 0; chainIndex < effectiveChain.length; chainIndex++) {
+      const tier = effectiveChain[chainIndex];
       const stepUnits = Math.ceil(baseStepUnits * getTierMultiplier(tier));
+      const baseEconomyUnits = Math.ceil(baseStepUnits * getTierMultiplier("economy"));
       const runtimeGuard = validateRuntimeStep({
         packageName: route.packageName,
         spentUnits,
@@ -97,6 +101,8 @@ export function createJobsRouter(deps) {
           simulateFailTiers,
           simulateFailCode,
           simulateRetryOnceTiers,
+          simulateLayoutMissingAnchorCount,
+          simulateLayoutOverflowCount,
           jobId: job.id,
           sourceLang: job.source_lang || null,
           targetLang: job.target_lang || null
@@ -107,9 +113,18 @@ export function createJobsRouter(deps) {
       }
 
       if (!translated || !translated.ok) {
-        if (chainIndex < route.chain.length - 1) {
+        if (chainIndex < effectiveChain.length - 1) {
           bump("provider_fallback_total");
         }
+        continue;
+      }
+
+      const qualityGateFailed =
+        route.mode === "strict" &&
+        ((translated.layoutMetrics?.missing_anchor_count || 0) > 0 ||
+          (translated.layoutMetrics?.overflow_count || 0) > 0);
+      if (qualityGateFailed) {
+        lastError = "LAYOUT_QUALITY_GATE_BLOCK";
         continue;
       }
 
@@ -121,6 +136,9 @@ export function createJobsRouter(deps) {
         selected_tier: tier,
         layout_metrics: translated.layoutMetrics || null,
         translation_cache_hit: Boolean(translated.cacheHit),
+        quality_gate_passed: route.mode === "strict" ? true : null,
+        quality_gate_reason: null,
+        cost_delta_units: Math.max(0, stepUnits - baseEconomyUnits),
         billing: { charged_units: spentUnits + stepUnits, charged: true }
       });
       bump("jobs_ready_total");
@@ -131,7 +149,9 @@ export function createJobsRouter(deps) {
     deps.jobs.update(job.id, {
       status: "FAILED",
       progress_pct: 100,
-      error_code: lastError
+      error_code: lastError,
+      quality_gate_passed: lastError === "LAYOUT_QUALITY_GATE_BLOCK" ? false : null,
+      quality_gate_reason: lastError === "LAYOUT_QUALITY_GATE_BLOCK" ? "strict_layout_guard" : null
     });
     bump("jobs_failed_total");
 
@@ -205,8 +225,16 @@ export function createJobsRouter(deps) {
     const simulateFailTiers = normalizeCsvParam(req.query?.simulate_fail_tiers);
     const simulateFailCode = (req.query?.simulate_fail_code || "").toString().trim() || "PROVIDER_TIMEOUT";
     const simulateRetryOnceTiers = normalizeCsvParam(req.query?.simulate_retry_once_tiers);
+    const simulateLayoutMissingAnchorCount = Math.max(
+      0,
+      Number(req.query?.simulate_layout_missing_anchor_count || 0)
+    );
+    const simulateLayoutOverflowCount = Math.max(0, Number(req.query?.simulate_layout_overflow_count || 0));
     const workerDelayRaw = Number(req.query?.worker_delay_ms || 0);
     if (!Number.isFinite(workerDelayRaw)) return res.status(400).json({ error: "invalid_input" });
+    if (!Number.isFinite(simulateLayoutMissingAnchorCount) || !Number.isFinite(simulateLayoutOverflowCount)) {
+      return res.status(400).json({ error: "invalid_input" });
+    }
     const workerDelayMs = Math.max(0, workerDelayRaw);
     const asyncRaw = req.query?.async;
     if (asyncRaw !== undefined && asyncRaw !== "0" && asyncRaw !== "1") {
@@ -230,6 +258,8 @@ export function createJobsRouter(deps) {
           simulateFailTiers,
           simulateFailCode,
           simulateRetryOnceTiers,
+          simulateLayoutMissingAnchorCount,
+          simulateLayoutOverflowCount,
           workerDelayMs
         });
       } else {
@@ -239,6 +269,8 @@ export function createJobsRouter(deps) {
           simulateFailTiers,
           simulateFailCode,
           simulateRetryOnceTiers,
+          simulateLayoutMissingAnchorCount,
+          simulateLayoutOverflowCount,
           workerDelayMs
         });
       }
@@ -251,6 +283,8 @@ export function createJobsRouter(deps) {
       simulateFailTiers,
       simulateFailCode,
       simulateRetryOnceTiers,
+      simulateLayoutMissingAnchorCount,
+      simulateLayoutOverflowCount,
       workerDelayMs
     });
     if (!result.ok) {
@@ -288,6 +322,9 @@ export function createJobsRouter(deps) {
       selected_tier: job.selected_tier,
       layout_metrics: job.layout_metrics,
       translation_cache_hit: Boolean(job.translation_cache_hit),
+      quality_gate_passed: job.quality_gate_passed,
+      quality_gate_reason: job.quality_gate_reason,
+      cost_delta_units: job.cost_delta_units,
       last_transition_at: job.last_transition_at,
       billing: job.billing
     });

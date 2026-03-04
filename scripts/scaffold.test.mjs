@@ -96,7 +96,8 @@ const hasRuntimeGuard =
 const hasFallbackChain =
   jobsRoute.includes("planRoute") &&
   (jobsRoute.includes("for (const tier of route.chain)") ||
-    jobsRoute.includes("for (let chainIndex = 0; chainIndex < route.chain.length; chainIndex++)"));
+    jobsRoute.includes("for (let chainIndex = 0; chainIndex < route.chain.length; chainIndex++)") ||
+    jobsRoute.includes("for (let chainIndex = 0; chainIndex < effectiveChain.length; chainIndex++)"));
 const hasJobsCreateContract =
   jobsRoute.includes("res.status(201).json({ job_id: temp.id, status: \"PENDING\" })");
 const hasJobsRunContract =
@@ -110,6 +111,9 @@ const hasJobsGetContract =
   jobsRoute.includes("selected_tier: job.selected_tier") &&
   jobsRoute.includes("layout_metrics: job.layout_metrics") &&
   jobsRoute.includes("translation_cache_hit: Boolean(job.translation_cache_hit)") &&
+  jobsRoute.includes("quality_gate_passed: job.quality_gate_passed") &&
+  jobsRoute.includes("quality_gate_reason: job.quality_gate_reason") &&
+  jobsRoute.includes("cost_delta_units: job.cost_delta_units") &&
   jobsRoute.includes("last_transition_at: job.last_transition_at") &&
   jobsRoute.includes("billing: job.billing");
 const hasJobsErrorCodes =
@@ -142,6 +146,10 @@ const hasErrorNormalizationWiring =
 const hasRetryPolicySimulationWiring =
   jobsRoute.includes("simulate_retry_once_tiers") &&
   jobsRoute.includes("for (let attempt = 1; attempt <= 2; attempt++)");
+const hasStrictQualityGateWiring =
+  jobsRoute.includes("effectiveChain = route.mode === \"strict\" ? [route.chain[0]] : route.chain") &&
+  jobsRoute.includes("LAYOUT_QUALITY_GATE_BLOCK") &&
+  jobsRoute.includes("simulate_layout_missing_anchor_count");
 const hasLayoutPipelineWiring =
   providerAdapter.includes("runLayoutPipeline") &&
   providerAdapter.includes("layoutMetrics") &&
@@ -169,6 +177,7 @@ notes.push(`${hasErrorNormalizationWiring ? "PASS" : "FAIL"} provider error norm
 notes.push(`${hasRetryPolicySimulationWiring ? "PASS" : "FAIL"} retry policy simulation wiring`);
 notes.push(`${hasLayoutPipelineWiring ? "PASS" : "FAIL"} layout pipeline wiring`);
 notes.push(`${hasTranslationCacheWiring ? "PASS" : "FAIL"} translation cache wiring`);
+notes.push(`${hasStrictQualityGateWiring ? "PASS" : "FAIL"} strict quality gate wiring`);
 if (
   !hasAdmissionGuard ||
   !hasRuntimeGuard ||
@@ -184,7 +193,8 @@ if (
   !hasErrorNormalizationWiring ||
   !hasRetryPolicySimulationWiring ||
   !hasLayoutPipelineWiring ||
-  !hasTranslationCacheWiring
+  !hasTranslationCacheWiring ||
+  !hasStrictQualityGateWiring
 ) {
   pass = false;
 }

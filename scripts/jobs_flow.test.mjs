@@ -49,6 +49,7 @@ async function postJobRaw(fields = {}) {
   const form = new FormData();
   if (fields.target_lang !== undefined) form.append("target_lang", String(fields.target_lang));
   if (fields.package !== undefined) form.append("package", String(fields.package));
+  if (fields.mode !== undefined) form.append("mode", String(fields.mode));
   if (fields.source_lang !== undefined) form.append("source_lang", String(fields.source_lang));
   if (fields.remaining_units !== undefined) form.append("remaining_units", String(fields.remaining_units));
   const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x0a, 0x25]);
@@ -113,6 +114,8 @@ async function main() {
     assert(typeof job.selected_tier === "string", "selected_tier should be present");
     assert(typeof job.layout_metrics?.anchor_count === "number", "layout_metrics.anchor_count should be present");
     assert(typeof job.translation_cache_hit === "boolean", "translation_cache_hit should be present");
+    assert(typeof job.cost_delta_units === "number", "cost_delta_units should be present");
+    assert(job.quality_gate_passed === null || typeof job.quality_gate_passed === "boolean", "quality_gate_passed type");
     assert(typeof job.last_transition_at === "string", "last_transition_at should be present");
     notes.push("PASS GET /jobs/:id READY state transition");
 
@@ -183,6 +186,7 @@ async function main() {
     const fallbackGet = await fallbackGetRes.json();
     assert(fallbackGet.status === "READY", "fallback job should end READY");
     assert((fallbackGet.billing?.charged_units || 0) >= 3, "fallback should charge next tier units");
+    assert(typeof fallbackGet.cost_delta_units === "number", "fallback cost_delta_units should be present");
     notes.push("PASS provider fallback one-tier-fail then success");
 
     // Provider fallback: all tiers fail -> FAILED + normalized error_code
@@ -349,6 +353,28 @@ async function main() {
     });
     assert(badRunRes.status === 400, `invalid run tier expected 400 got ${badRunRes.status}`);
     notes.push("PASS invalid run tier rejected");
+
+    // Strict quality gate: simulate missing anchors and ensure strict mode blocks output quality
+    const strictCreateRes = await postJobRaw({
+      target_lang: "tr",
+      source_lang: "en",
+      mode: "strict",
+      package: "pro",
+      remaining_units: 9999
+    });
+    assert(strictCreateRes.status === 201, `strict create expected 201 got ${strictCreateRes.status}`);
+    const strictJob = await strictCreateRes.json();
+    const strictRunRes = await fetch(
+      `${baseUrl}/jobs/${strictJob.job_id}/run?simulate_layout_missing_anchor_count=2`,
+      { method: "POST" }
+    );
+    assert(strictRunRes.status === 409, `strict quality gate run expected 409 got ${strictRunRes.status}`);
+    const strictRun = await strictRunRes.json();
+    assert(
+      strictRun.error === "LAYOUT_QUALITY_GATE_BLOCK",
+      `strict quality gate expected LAYOUT_QUALITY_GATE_BLOCK got ${strictRun.error}`
+    );
+    notes.push("PASS strict quality gate blocks missing-anchor output");
 
     const eventsMissingRes = await fetch(`${baseUrl}/jobs/nope/events`);
     assert(eventsMissingRes.status === 404, `events missing job expected 404 got ${eventsMissingRes.status}`);
