@@ -239,3 +239,8 @@
   - PASS LV-22 staging smoke flow (create/run/poll/output/metrics)
   - PASS post-release ops and release/handover doc guards remain green
   - PASS staging readiness advanced to smoke-validated
+- 2026-03-04T19:47:12+03:00 | npm run test:billing-reliability && npm run test:scaffold && npm run test:flow && npm run test:staging-smoke | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS LV-23 billing replay/refund/concurrency reliability checks
+  - PASS existing flow/scaffold/smoke contracts after billing integration
+  - PASS supabase billing adapter wiring did not break iOS-facing job lifecycle

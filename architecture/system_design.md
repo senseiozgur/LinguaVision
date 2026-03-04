@@ -159,6 +159,11 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - Staging smoke run checklist published (`research/staging_smoke_run.md`).
 - Minimal staging smoke API contract test added (`scripts/staging_smoke.test.mjs`).
 
+### LV-23 Status
+- Supabase billing migration drafted for append-only ledger + idempotent RPCs (`supabase/migrations/20260304170000_billing_ledger.sql`).
+- Backend billing adapters added (`backend/src/billing/*`) and run flow wired for deterministic charge/refund.
+- Billing reliability test added (`scripts/billing_reliability.test.mjs`).
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`

@@ -14,10 +14,12 @@
     "test:release-hardening": "node ../scripts/release_hardening.test.mjs",
     "test:production-handover": "node ../scripts/production_handover.test.mjs",
     "test:post-release-ops": "node ../scripts/post_release_ops.test.mjs",
-    "test:staging-smoke": "node ../scripts/staging_smoke.test.mjs"
+    "test:staging-smoke": "node ../scripts/staging_smoke.test.mjs",
+    "test:billing-reliability": "node ../scripts/billing_reliability.test.mjs"
   },
   "dependencies": {
     "express": "^4.19.2",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "@supabase/supabase-js": "^2.49.8"
   }
 }

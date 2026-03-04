@@ -39,6 +39,7 @@
 - [x] LV-20 production readiness summary and handover pack
 - [x] LV-21 post-release monitoring cadence + incident template
 - [x] LV-22 staging release checklist + smoke run
+- [x] LV-23 Supabase billing ledger + deterministic charge/refund integration
 
 ## Auto Loop (No Human Wait)
 1. Pick next top task.
@@ -86,3 +87,5 @@
   evidence: `research/monitoring_cadence.md`, `research/incident_template.md`, `scripts/post_release_ops.test.mjs`
 - [x] LV-22 staging smoke checklist + automated smoke test landed.
   evidence: `research/staging_smoke_run.md`, `scripts/staging_smoke.test.mjs`, `backend/package.json`
+- [x] LV-23 supabase-backed billing adapter and reliability tests landed.
+  evidence: `supabase/migrations/20260304170000_billing_ledger.sql`, `backend/src/billing/billing.supabase.js`, `backend/src/routes/jobs.routes.js`, `scripts/billing_reliability.test.mjs`

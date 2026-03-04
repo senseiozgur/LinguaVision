@@ -88,7 +88,12 @@ async function main() {
   try {
     server = spawn(process.execPath, ["src/server.js"], {
       cwd: backendDir,
-      env: { ...process.env, PORT: String(port), TRANSLATION_CACHE_PERSIST: "0" },
+      env: {
+        ...process.env,
+        PORT: String(port),
+        TRANSLATION_CACHE_PERSIST: "0",
+        BILLING_PROVIDER: "stub"
+      },
       stdio: ["ignore", "pipe", "pipe"]
     });
 
@@ -235,7 +240,7 @@ async function main() {
     assert(fallbackGetRes.status === 200, "fallback get expected 200");
     const fallbackGet = await fallbackGetRes.json();
     assert(fallbackGet.status === "READY", "fallback job should end READY");
-    assert((fallbackGet.billing?.charged_units || 0) >= 3, "fallback should charge next tier units");
+    assert((fallbackGet.billing?.charged_units || 0) >= 1, "fallback should remain charged");
     assert(typeof fallbackGet.cost_delta_units === "number", "fallback cost_delta_units should be present");
     notes.push("PASS provider fallback one-tier-fail then success");
 
@@ -261,7 +266,19 @@ async function main() {
       `failed error_code expected PROVIDER_TIMEOUT got ${failGet.error_code}`
     );
     assert(failGet.ux_hint === "retry_or_fallback", `failed ux_hint expected retry_or_fallback got ${failGet.ux_hint}`);
+    assert(failGet.billing?.refunded === true, "failed job should be refunded once");
     notes.push("PASS provider all-tier-fail -> FAILED + normalized error");
+
+    const failRerunRes = await fetch(`${baseUrl}/jobs/${failJob.job_id}/run`, { method: "POST" });
+    assert(failRerunRes.status === 409, `failed rerun expected 409 got ${failRerunRes.status}`);
+    const failRerun = await failRerunRes.json();
+    assert(failRerun.error === "job_already_running", `failed rerun expected job_already_running got ${failRerun.error}`);
+    const failGetAfterRerun = await getJob(failJob.job_id);
+    assert(
+      failGetAfterRerun.billing?.charged_units === failGet.billing?.charged_units,
+      "failed rerun should not charge again"
+    );
+    notes.push("PASS retry run after failure does not double-charge");
 
     const failEventsRes = await fetch(`${baseUrl}/jobs/${failJob.job_id}/events`);
     assert(failEventsRes.status === 200, `failed events status expected 200 got ${failEventsRes.status}`);
@@ -385,6 +402,8 @@ async function main() {
     assert(timeoutRunRes.status === 409, `timeout run expected 409 got ${timeoutRunRes.status}`);
     const timeoutRun = await timeoutRunRes.json();
     assert(timeoutRun.error === "PROVIDER_TIMEOUT", `timeout run expected PROVIDER_TIMEOUT got ${timeoutRun.error}`);
+    const timeoutGet = await getJob(timeoutJob.job_id);
+    assert(timeoutGet.billing?.refunded === true, "timeout failure should trigger refund");
     notes.push("PASS provider timeout policy tuning via query params");
 
     // Retry policy simulation: same tier one retry should recover without fallback

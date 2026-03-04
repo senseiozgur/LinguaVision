@@ -35,7 +35,12 @@ async function main() {
   try {
     server = spawn(process.execPath, ["src/server.js"], {
       cwd: backendDir,
-      env: { ...process.env, PORT: String(port), TRANSLATION_CACHE_PERSIST: "0" },
+      env: {
+        ...process.env,
+        PORT: String(port),
+        TRANSLATION_CACHE_PERSIST: "0",
+        BILLING_PROVIDER: "stub"
+      },
       stdio: ["ignore", "pipe", "pipe"]
     });
 

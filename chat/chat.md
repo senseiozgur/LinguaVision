@@ -192,3 +192,9 @@ TASK: LV-22 staging checklist + smoke run
 OUTPUT: staging smoke checklist dokumani ve otomatik smoke test eklendi; readiness status smoke-validated seviyesine tasindi
 PROOF: cmd=npm run test:staging-smoke; npm run test:post-release-ops; npm run test:production-handover; npm run test:release-hardening | result=PASS
 NEXT: commit -> pull --rebase -> push; maintenance mode
+
+[TS=2026-03-04T19:47:12+03:00] AGENT=Cevher
+TASK: LV-23 supabase billing integration
+OUTPUT: supabase billing ledger migration + rpc adapter + run-time charge/refund wiring tamamlandi; billing reliability testi eklendi
+PROOF: cmd=npm run test:billing-reliability; npm run test:scaffold; npm run test:flow; npm run test:staging-smoke | result=PASS
+NEXT: commit -> pull --rebase -> push

@@ -6,6 +6,8 @@ import { JobStore } from "./jobs/job.store.js";
 import { JobQueue } from "./jobs/job.queue.js";
 import { LocalStorage } from "./storage/local.storage.js";
 import { createProviderAdapter } from "./providers/provider.adapter.js";
+import { createSupabaseBillingAdapterFromEnv } from "./billing/billing.supabase.js";
+import { createBillingStubAdapter } from "./billing/billing.stub.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,8 +31,11 @@ const providerAdapter = createProviderAdapter({
   disableLayoutPipeline: featureFlags.disableLayoutPipeline,
   disableTranslationCache: featureFlags.disableTranslationCache
 });
+const billingProvider = (process.env.BILLING_PROVIDER || "supabase").toLowerCase();
+const billingAdapter =
+  billingProvider === "stub" ? createBillingStubAdapter() : createSupabaseBillingAdapterFromEnv(process.env);
 
-const shared = { jobs, storage, providerAdapter, featureFlags };
+const shared = { jobs, storage, providerAdapter, featureFlags, billingAdapter };
 const queue = new JobQueue({
   processFn: async (payload) => {
     if (!shared.processJob) return;

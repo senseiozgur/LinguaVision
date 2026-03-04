@@ -1,7 +1,9 @@
 import express from "express";
 import multer from "multer";
+import crypto from "crypto";
 import { estimateStepUnits, validateAdmission, validateRuntimeStep } from "../routing/cost.guard.js";
 import { getTierMultiplier, planRoute } from "../providers/provider.router.js";
+import { BillingError, toSafeBillingErrorCode } from "../billing/billing.adapter.js";
 
 const upload = multer({ storage: multer.memoryStorage() });
 const ALLOWED_PACKAGES = new Set(["free", "pro", "premium"]);
@@ -34,6 +36,7 @@ function mapErrorToUxHint(errorCode) {
   if (errorCode === "INPUT_LIMIT_EXCEEDED") return "plan_limit_upgrade";
   if (errorCode === "COST_GUARD_BLOCK") return "cost_limit_reduce_scope";
   if (errorCode === "COST_LIMIT_STOP") return "cost_limit_partial_result";
+  if (errorCode && errorCode.startsWith("BILLING_")) return "retry_later";
   if (errorCode === "LAYOUT_QUALITY_GATE_BLOCK") return "switch_mode_or_fix_pdf";
   if (errorCode && errorCode.startsWith("PROVIDER_")) return "retry_or_fallback";
   return "review_job_error";
@@ -66,6 +69,7 @@ export function createJobsRouter(deps) {
 
   async function processJob({
     jobId,
+    requestId,
     simulateFailTier,
     simulateFailTiers,
     simulateFailCode,
@@ -78,6 +82,7 @@ export function createJobsRouter(deps) {
   }) {
     const job = deps.jobs.get(jobId);
     if (!job) return { ok: false, error: "job_not_found" };
+    const runRequestId = requestId || job.billing?.request_id || crypto.randomUUID();
 
     if (workerDelayMs > 0) {
       await sleep(workerDelayMs);
@@ -86,8 +91,40 @@ export function createJobsRouter(deps) {
     const inBytes = await deps.storage.readFile(job.input_file_path);
     const route = planRoute({ packageName: job.package_name || "free", mode: job.mode || "readable" });
     const baseStepUnits = estimateStepUnits({ fileSizeBytes: inBytes.length, mode: route.mode });
-    const spentUnits = job.billing?.charged_units || 0;
+    const spentUnits = Number(job.billing?.charged_units || 0);
+    const unitsToCharge = Math.max(1, baseStepUnits);
     let lastError = "ROUTER_NO_FALLBACK_PATH";
+    let chargeResult = null;
+
+    try {
+      chargeResult = await deps.billingAdapter.charge({
+        user_id: job.user_id || null,
+        job_id: job.id,
+        request_id: runRequestId,
+        units: unitsToCharge,
+        meta: {
+          mode: route.mode,
+          package_name: route.packageName,
+          source_lang: job.source_lang || null,
+          target_lang: job.target_lang || null
+        }
+      });
+      deps.jobs.update(job.id, {
+        billing: {
+          ...job.billing,
+          request_id: runRequestId,
+          billing_request_id: chargeResult.billing_request_id,
+          charged_units: Number(chargeResult.charged_units || unitsToCharge),
+          charged: true,
+          refunded: false
+        }
+      });
+    } catch (err) {
+      if (err instanceof BillingError) {
+        return { ok: false, error: err.code };
+      }
+      return { ok: false, error: toSafeBillingErrorCode(err) };
+    }
 
     const effectiveChain = route.mode === "strict" ? [route.chain[0]] : route.chain;
     for (let chainIndex = 0; chainIndex < effectiveChain.length; chainIndex++) {
@@ -159,11 +196,47 @@ export function createJobsRouter(deps) {
         quality_gate_reason: null,
         cost_delta_units: Math.max(0, stepUnits - baseEconomyUnits),
         ux_hint: null,
-        billing: { charged_units: spentUnits + stepUnits, charged: true }
+        billing: {
+          ...job.billing,
+          request_id: runRequestId,
+          billing_request_id: chargeResult.billing_request_id,
+          charged_units: Number(chargeResult.charged_units || unitsToCharge),
+          charged: true,
+          refunded: false
+        }
       });
       bump("jobs_ready_total");
 
       return { ok: true };
+    }
+
+    if (chargeResult && chargeResult.billing_request_id) {
+      try {
+        const refundResult = await deps.billingAdapter.refund({
+          user_id: job.user_id || null,
+          job_id: job.id,
+          request_id: runRequestId,
+          billing_request_id: chargeResult.billing_request_id,
+          units: Number(chargeResult.charged_units || unitsToCharge),
+          reason: lastError,
+          meta: {
+            mode: route.mode,
+            package_name: route.packageName
+          }
+        });
+        deps.jobs.update(job.id, {
+          billing: {
+            ...job.billing,
+            request_id: runRequestId,
+            billing_request_id: chargeResult.billing_request_id,
+            charged_units: Number(chargeResult.charged_units || unitsToCharge),
+            charged: true,
+            refunded: Boolean(refundResult.refunded)
+          }
+        });
+      } catch {
+        lastError = "BILLING_REFUND_ERROR";
+      }
     }
 
     deps.jobs.update(job.id, {
@@ -279,12 +352,18 @@ export function createJobsRouter(deps) {
       return res.status(400).json({ error: "invalid_input" });
     }
 
-    deps.jobs.update(job.id, { status: "PROCESSING", progress_pct: 30 });
+    const runRequestId = job.billing?.request_id || crypto.randomUUID();
+    deps.jobs.update(job.id, {
+      status: "PROCESSING",
+      progress_pct: 30,
+      billing: { ...job.billing, request_id: runRequestId }
+    });
 
     if (asyncMode) {
       if (deps.queue && typeof deps.queue.enqueue === "function") {
         deps.queue.enqueue({
           jobId: job.id,
+          requestId: runRequestId,
           simulateFailTier,
           simulateFailTiers,
           simulateFailCode,
@@ -298,6 +377,7 @@ export function createJobsRouter(deps) {
       } else {
         void processJob({
           jobId: job.id,
+          requestId: runRequestId,
           simulateFailTier,
           simulateFailTiers,
           simulateFailCode,
@@ -314,6 +394,7 @@ export function createJobsRouter(deps) {
 
     const result = await processJob({
       jobId: job.id,
+      requestId: runRequestId,
       simulateFailTier,
       simulateFailTiers,
       simulateFailCode,
