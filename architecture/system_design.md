@@ -1,96 +1,100 @@
 ﻿# iOS-First System Design (Canonical)
 
 ## Goal
-PDF cevirisinde format bozulmasini minimize eden, maliyet kontrollu ve sade bir iOS-first sistem.
+PDF cevirisinde format bozulmasini minimumda tutan, maliyet kontrollu, fallback-guvenli ve iOS-first bir sistem.
 
-## Target Architecture
+## Canonical Dependencies
+- Routing/cost karar kaynagi: `research/router_policy.md`
+- Sadece bu dosya + `research/router_policy.md` mimari kanonik kaynaktir.
+
+## Current Implemented Baseline (2026-03-04)
+- Jobs API: `POST /jobs`, `POST /jobs/:id/run`, `GET /jobs/:id`, `GET /jobs/:id/events`, `GET /jobs/:id/output`
+  evidence: `backend/src/routes/jobs.routes.js`
+- Queue model: single-worker in-memory queue
+  evidence: `backend/src/jobs/job.queue.js`, `backend/src/server.js`
+- Cost guard: admission + runtime
+  evidence: `backend/src/routing/cost.guard.js`, `backend/src/routes/jobs.routes.js`
+- Provider fallback + normalization + retry simulation
+  evidence: `backend/src/providers/provider.router.js`, `backend/src/providers/provider.adapter.js`, `backend/src/routes/jobs.routes.js`
+- End-to-end proof tests
+  evidence: `scripts/scaffold.test.mjs`, `scripts/jobs_flow.test.mjs`
+
+## Target Runtime Architecture
 1. iOS App (SwiftUI)
 - Upload PDF
-- Job baslat (`POST /jobs`)
-- Run (`POST /jobs/{id}/run`)
-- Poll (`GET /jobs/{id}`)
-- Output indir (`GET /jobs/{id}/output`)
+- Create job (`POST /jobs`)
+- Trigger run (`POST /jobs/{id}/run`)
+- Poll (`GET /jobs/{id}` + optional `GET /jobs/{id}/events`)
+- Download output (`GET /jobs/{id}/output`)
 
 2. API Layer
-- `jobs` route: input validation + response contract
-- Minimal auth/session boundary
-- Idempotent job trigger korumasi
+- Input validation and response contract consistency
+- Idempotent run semantics (same job, safe re-run response)
+- Error normalization and iOS-friendly codes
 
-3. Job Orchestrator
+3. Orchestrator
 - State machine: `PENDING -> PROCESSING -> READY|FAILED`
-- Billing adapter cagrisi
-- Router policy ile provider secimi
-- Storage write/read
+- Route planning via canonical router policy
+- Runtime cost guard on each execution step
 
 4. Translation Core
-- PDF parse + layout anchors
-- Chunk planner (strict/readable)
-- Provider adapter interface (economy/standard/premium)
-- Translation cache
+- Provider adapter abstraction (economy/standard/premium)
+- Same-tier retry (bounded) + deterministic fallback chain
+- Layout-preserving pipeline (LV-06 target)
 
-5. Storage
-- Input PDF (immutable)
+5. Storage and Artifacts
+- Immutable input PDF
 - Output PDF
-- Cache artifacts (page/chunk)
+- Page/chunk cache artifacts (planned hardening)
 
-## Minimal Service Boundaries
-- `JobsService`: lifecycle + API response shape
-- `RoutingService`: `research/router_policy.md` kurallarini uygular
-- `ProviderAdapter`: tek tip `translate_chunk/translate_page` sozlesmesi
-- `CostGuard`: package limit + runtime spend check
+## LV-06 Architecture Slice (Next)
+### Objective
+PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor-reflow adimlari eklemek.
 
-## iOS-first Decisions
-- Once mobil deneyim: job/polling modelinin response alanlari sabit tutulur.
-- Uzun islemler arkaplanda; iOS sadece statu ve progress yonetir.
-- Basarisizlikta normalize error kodlari doner; ham provider hatasi donulmez.
+### Minimal Components
+- `PdfParseService`
+: sayfa text bloklari, bbox, okuma sirasi cikartir.
+- `AnchorMap`
+: parse edilen bloklari ceviri oncesi sabit kimliklerle isaretler.
+- `ChunkPlanner`
+: anchor bazli chunk olusturur (`strict`/`readable`).
+- `ReflowWriter`
+: ceviri sonucunu anchor'lara geri yazar, satir kirilimi ve bbox toleransi uygular.
 
-## Request/Response Contract (Minimal)
+### Proposed Internal Flow
+1. `Input PDF -> PdfParseService`
+2. `AnchorMap + ChunkPlanner`
+3. `ProviderAdapter.translate...`
+4. `ReflowWriter` ile anchor bazli output
+5. `Output PDF` + quality metrics (overflow count, moved block count)
+
+### Acceptance Criteria (LV-06)
+- Ayni test PDF icin output parse edilebilir olacak.
+- Anchor coverage >= %99 (missing anchor yok ya da loglanmis).
+- Overflow/clip count audit log'da raporlanacak.
+- iOS contract degismeyecek (`create/run/poll/output` ayni kalacak).
+
+## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status }`
-- `GET /jobs/{id}` -> `{ status, progress_pct, error_code, billing{...} }`
-- `GET /jobs/{id}/output` -> translated pdf bytes
-
-## End-to-End Sequence
-1. iOS dosyayi yukler ve job olusturur.
-2. iOS `run` cagirir, backend `PENDING -> PROCESSING` gecer.
-3. Orchestrator billing charge + provider route + translate yapar.
-4. Basarida output yazilir, `READY` doner.
-5. Hata durumunda normalize code + gerekiyorsa refund + `FAILED` doner.
+- `GET /jobs/{id}` -> `{ job_id, status, progress_pct, error_code, selected_tier, last_transition_at, billing }`
+- `GET /jobs/{id}/events` -> `{ job_id, events[] }`
+- `GET /jobs/{id}/output` -> `application/pdf`
 
 ## Simplicity Constraints
-- Tek backend process ile baslanir (monolith).
-- Event bus/queue gibi ek bilesenler Phase-0'da yok.
-- Multi-provider karmasasi router policy uzerinden tek noktada yonetilir.
-
-## Migration Baseline (from lingua-Deepl)
-- Alinacak omurga:
-- `D:/dev/proje/Deepl/backend/src/routes/jobs.routes.ts`
-- `D:/dev/proje/Deepl/backend/src/jobs/job.runner.ts`
-- `D:/dev/proje/Deepl/backend/src/providers/provider.interface.ts`
-- `D:/dev/proje/Deepl/backend/src/storage/local.storage.ts`
-- iOS polling modeli: `D:/dev/proje/Deepl/ios-client/LinguaFlowIOS/TranslateViewModel.swift`
-
-## Phase-1 Backlog (Implementation-ready)
-1. `jobs` API scaffold (contract-first).
-2. `RoutingService` with deterministic rules from canonical policy.
-3. `ProviderAdapter` tier mapping (economy/standard/premium).
-4. Page/chunk cache with hash key.
-5. iOS polling + output download integration test.
-
-## Why This Wins
-- iOS-first hedefle dogrudan uyumlu asenkron job akisi.
-- Fallback + maliyet denetimi canonical policy ile merkezi.
-- Over-engineering olmadan olceklenebilir modulerlik.
+- Monolith backend devam.
+- Tek queue worker modeli korunur.
+- Sadece canonical policy ile routing/cost karari verilir.
+- Over-engineering yok: event bus/distributed queue bu fazda yok.
 
 ## Evidence
-- API/job model: `D:/dev/proje/Deepl/docs/API_CONTRACT.md`, `D:/dev/proje/Deepl/backend/src/routes/jobs.routes.ts`
-- Runner ve billing/refund davranisi: `D:/dev/proje/Deepl/backend/src/jobs/job.runner.ts`
-- Provider abstraction: `D:/dev/proje/Deepl/docs/PROVIDER_ARCHITECTURE.md`
-- iOS polling akis referansi: `D:/dev/proje/Deepl/ios-client/LinguaFlowIOS/TranslateViewModel.swift:35-89`
-- Layout-preserving yaklasim: `D:/dev/proje/LinguaVision/sources/PDFMathTranslate/README.md:53`, `D:/dev/proje/LinguaVision/sources/PDFMathTranslate/pdf2zh/converter.py`
-
-## Freeze Decision Sync
-- MVP (Phase-1 ilk teslim) scope: `create/run/poll/download`.
-- strict/readable secici UI: `REVIEW LATER`.
-- Cost guard kontrolu: hem admission hem runtime zorunlu.
-- Fallback zinciri paket bazli sabit kalir.
+- Current backend routes: `backend/src/routes/jobs.routes.js`
+- Queue adapter: `backend/src/jobs/job.queue.js`
+- Provider abstraction: `backend/src/providers/provider.adapter.js`
+- Routing policy implementation side: `backend/src/providers/provider.router.js`
+- Cost guard: `backend/src/routing/cost.guard.js`
+- Flow/scaffold tests: `scripts/jobs_flow.test.mjs`, `scripts/scaffold.test.mjs`
+- Reference baseline (read-only):
+  - `D:/dev/proje/Deepl/backend/src/routes/jobs.routes.ts`
+  - `D:/dev/proje/Deepl/backend/src/jobs/job.runner.ts`
+  - `D:/dev/proje/Deepl/ios-client/LinguaFlowIOS/TranslateViewModel.swift`
