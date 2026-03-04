@@ -100,3 +100,9 @@ TASK: LV-08 cache keying and quality payload hardening
 OUTPUT: provider adapter'a deterministic cache eklendi (sha256 key), jobs polling payload'ina translation_cache_hit alani eklendi
 PROOF: cmd=npm run test:scaffold; npm run test:flow | result=PASS/PASS | checks=translation cache wiring + repeated same-doc cache hit
 NEXT: LV-09 cache persistence/eviction policy (memory pressure-safe strategy)
+
+[TS=2026-03-04T11:55:54+03:00] AGENT=Cevher
+TASK: LV-09 cache persistence + eviction policy
+OUTPUT: bounded LRU translation cache ve opsiyonel disk persist (translation-cache.json) eklendi; metrics endpoint cache telemetrisini expose ediyor
+PROOF: cmd=npm run test:scaffold; npm run test:flow | result=PASS/PASS | files=backend/src/providers/translation.cache.js,backend/src/providers/provider.adapter.js,backend/src/server.js,backend/src/routes/jobs.routes.js
+NEXT: LV-10 retry/fallback telemetry detaylandirma + audit compaction strategy

@@ -169,3 +169,8 @@
   - PASS LV-08 deterministic translation cache wiring
   - PASS repeated same-document run returns translation_cache_hit=true
   - PASS regression suite after cache integration
+- 2026-03-04T11:55:33+03:00 | npm run test:scaffold && npm run test:flow | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS LV-09 translation cache LRU eviction/persistence wiring
+  - PASS /jobs/metrics exposes cache hit/miss/eviction counters
+  - PASS full regression with persistence disabled in tests

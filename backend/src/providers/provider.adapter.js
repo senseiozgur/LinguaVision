@@ -1,5 +1,6 @@
 import { runLayoutPipeline } from "../pdf/layout.pipeline.js";
 import { createHash } from "crypto";
+import { TranslationCache } from "./translation.cache.js";
 
 const KNOWN_PROVIDER_ERRORS = new Set([
   "PROVIDER_RATE_LIMIT",
@@ -12,9 +13,12 @@ function normalizeProviderError(code) {
   return "PROVIDER_UPSTREAM_5XX";
 }
 
-export function createProviderAdapter() {
+export function createProviderAdapter({ cacheMaxEntries = 200, cachePersistPath = null } = {}) {
   const transientFailureSeen = new Set();
-  const translationCache = new Map();
+  const translationCache = new TranslationCache({
+    maxEntries: cacheMaxEntries,
+    persistPath: cachePersistPath
+  });
 
   function makeCacheKey({ inputBuffer, tier, mode, sourceLang, targetLang }) {
     const h = createHash("sha256");
@@ -52,16 +56,18 @@ export function createProviderAdapter() {
       }
 
       const cacheKey = makeCacheKey({ inputBuffer, tier, mode, sourceLang, targetLang });
-      if (!hasSimulationControls && translationCache.has(cacheKey)) {
+      if (!hasSimulationControls) {
         const cached = translationCache.get(cacheKey);
-        return {
-          ok: true,
-          tier,
-          mode,
-          outputBuffer: cached.outputBuffer,
-          layoutMetrics: cached.layoutMetrics,
-          cacheHit: true
-        };
+        if (cached) {
+          return {
+            ok: true,
+            tier,
+            mode,
+            outputBuffer: cached.outputBuffer,
+            layoutMetrics: cached.layoutMetrics,
+            cacheHit: true
+          };
+        }
       }
 
       const pipeline = runLayoutPipeline({ inputBuffer, mode });
@@ -79,6 +85,9 @@ export function createProviderAdapter() {
         layoutMetrics: pipeline.layoutMetrics,
         cacheHit: false
       };
+    },
+    getCacheMetrics() {
+      return translationCache.metrics();
     }
   };
 }

@@ -13,7 +13,12 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const jobs = new JobStore();
 const storage = new LocalStorage(path.resolve(__dirname, "../storage-data"));
-const providerAdapter = createProviderAdapter();
+const cacheMaxEntries = Number(process.env.TRANSLATION_CACHE_MAX || 200);
+const cachePersistPath =
+  process.env.TRANSLATION_CACHE_PERSIST === "0"
+    ? null
+    : path.resolve(__dirname, "../storage-data/translation-cache.json");
+const providerAdapter = createProviderAdapter({ cacheMaxEntries, cachePersistPath });
 
 const shared = { jobs, storage, providerAdapter };
 const queue = new JobQueue({

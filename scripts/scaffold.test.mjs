@@ -22,7 +22,8 @@ const required = [
   "backend/src/storage/local.storage.js",
   "backend/src/routing/cost.guard.js",
   "backend/src/providers/provider.router.js",
-  "backend/src/providers/provider.adapter.js"
+  "backend/src/providers/provider.adapter.js",
+  "backend/src/providers/translation.cache.js"
 ];
 
 let pass = true;
@@ -83,6 +84,7 @@ try {
 
 const jobsRoute = fs.readFileSync(path.join(root, "backend/src/routes/jobs.routes.js"), "utf8");
 const providerAdapter = fs.readFileSync(path.join(root, "backend/src/providers/provider.adapter.js"), "utf8");
+const translationCache = fs.readFileSync(path.join(root, "backend/src/providers/translation.cache.js"), "utf8");
 const pdfPipeline = fs.readFileSync(path.join(root, "backend/src/pdf/layout.pipeline.js"), "utf8");
 const hasAdmissionGuard =
   jobsRoute.includes("validateAdmission") &&
@@ -119,7 +121,8 @@ const hasEventsEndpoint =
 const hasMetricsEndpoint =
   jobsRoute.includes("router.get(\"/metrics\"") &&
   jobsRoute.includes("jobs_create_total") &&
-  jobsRoute.includes("queue_depth");
+  jobsRoute.includes("queue_depth") &&
+  jobsRoute.includes("getCacheMetrics");
 const hasAsyncToggleWiring =
   jobsRoute.includes("const asyncRaw = req.query?.async") &&
   jobsRoute.includes("const asyncMode = asyncRaw === \"1\"") &&
@@ -143,7 +146,9 @@ const hasLayoutPipelineWiring =
 const hasTranslationCacheWiring =
   providerAdapter.includes("translationCache") &&
   providerAdapter.includes("makeCacheKey") &&
-  providerAdapter.includes("cacheHit");
+  providerAdapter.includes("cacheHit") &&
+  translationCache.includes("cache_evictions_total") &&
+  translationCache.includes("saveToDisk");
 
 notes.push(`${hasAdmissionGuard ? "PASS" : "FAIL"} admission guard wiring`);
 notes.push(`${hasRuntimeGuard ? "PASS" : "FAIL"} runtime guard wiring`);

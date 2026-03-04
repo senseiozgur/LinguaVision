@@ -22,6 +22,8 @@ PDF cevirisinde format bozulmasini minimumda tutan, maliyet kontrollu, fallback-
   evidence: `backend/src/routes/jobs.routes.js` (`GET /jobs/metrics`)
 - Deterministic translation cache (in-memory, sha256 keying)
   evidence: `backend/src/providers/provider.adapter.js`
+- Bounded LRU eviction + optional persisted cache storage
+  evidence: `backend/src/providers/translation.cache.js`, `backend/src/server.js`
 - End-to-end proof tests
   evidence: `scripts/scaffold.test.mjs`, `scripts/jobs_flow.test.mjs`
 
@@ -92,12 +94,17 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - Provider adapter includes deterministic cache keying with in-memory cache map.
 - `GET /jobs/{id}` payload includes `translation_cache_hit` for polling/debug.
 
+### LV-09 Status
+- Translation cache is now bounded (`cache_max_entries`) with LRU eviction.
+- Optional persistence file is supported (`TRANSLATION_CACHE_PERSIST`, `translation-cache.json`).
+- `/jobs/metrics` now surfaces cache hit/miss/eviction counters.
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`
 - `GET /jobs/{id}` -> `{ job_id, status, progress_pct, error_code, selected_tier, layout_metrics, translation_cache_hit, last_transition_at, billing }`
 - `GET /jobs/{id}/events` -> `{ job_id, events[] }`
-- `GET /jobs/metrics` -> `{ jobs_*_total, queue_depth, queue_busy }`
+- `GET /jobs/metrics` -> `{ jobs_*_total, cache_*_total, cache_entries, cache_max_entries, queue_depth, queue_busy }`
 - `GET /jobs/{id}/output` -> `application/pdf`
 
 ## Simplicity Constraints

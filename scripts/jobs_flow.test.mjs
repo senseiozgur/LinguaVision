@@ -76,7 +76,7 @@ async function main() {
   try {
     server = spawn(process.execPath, ["src/server.js"], {
       cwd: backendDir,
-      env: { ...process.env, PORT: String(port) },
+      env: { ...process.env, PORT: String(port), TRANSLATION_CACHE_PERSIST: "0" },
       stdio: ["ignore", "pipe", "pipe"]
     });
 
@@ -360,6 +360,9 @@ async function main() {
     assert(typeof metrics.jobs_create_total === "number", "metrics jobs_create_total should be number");
     assert(typeof metrics.jobs_run_total === "number", "metrics jobs_run_total should be number");
     assert(typeof metrics.queue_depth === "number", "metrics queue_depth should be number");
+    assert(typeof metrics.cache_hits_total === "number", "metrics cache_hits_total should be number");
+    assert(typeof metrics.cache_evictions_total === "number", "metrics cache_evictions_total should be number");
+    assert(typeof metrics.cache_entries === "number", "metrics cache_entries should be number");
     notes.push("PASS /jobs/metrics minimal observability contract");
 
     console.log("PASS");

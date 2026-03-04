@@ -249,8 +249,13 @@ export function createJobsRouter(deps) {
     const queue = deps.queue || null;
     const queueDepth = queue && Array.isArray(queue.q) ? queue.q.length : 0;
     const queueBusy = Boolean(queue && queue.busy);
+    const cacheMetrics =
+      deps.providerAdapter && typeof deps.providerAdapter.getCacheMetrics === "function"
+        ? deps.providerAdapter.getCacheMetrics()
+        : {};
     return res.status(200).json({
       ...stats,
+      ...cacheMetrics,
       queue_depth: queueDepth,
       queue_busy: queueBusy
     });
