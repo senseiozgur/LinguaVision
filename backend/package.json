@@ -13,7 +13,8 @@
     "test:benchmark-mode": "node ../scripts/benchmark_mode_baseline.mjs",
     "test:release-hardening": "node ../scripts/release_hardening.test.mjs",
     "test:production-handover": "node ../scripts/production_handover.test.mjs",
-    "test:post-release-ops": "node ../scripts/post_release_ops.test.mjs"
+    "test:post-release-ops": "node ../scripts/post_release_ops.test.mjs",
+    "test:staging-smoke": "node ../scripts/staging_smoke.test.mjs"
   },
   "dependencies": {
     "express": "^4.19.2",

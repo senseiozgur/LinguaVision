@@ -155,6 +155,10 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - Incident response template published (`research/incident_template.md`).
 - Post-release ops guard test added (`scripts/post_release_ops.test.mjs`).
 
+### LV-22 Status
+- Staging smoke run checklist published (`research/staging_smoke_run.md`).
+- Minimal staging smoke API contract test added (`scripts/staging_smoke.test.mjs`).
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`

@@ -1,7 +1,7 @@
 ﻿# Production Readiness Summary (LV-20)
 
 ## Release State
-- Status: READY_FOR_STAGING
+- Status: READY_FOR_STAGING_SMOKE_VALIDATED
 - Date: 2026-03-04
 - Branch: `main`
 
@@ -21,6 +21,7 @@
 - `npm run test:ios-migration`
 - `npm run test:benchmark-mode`
 - `npm run test:release-hardening`
+- `npm run test:staging-smoke`
 
 ## Operational Controls
 - Feature toggles:

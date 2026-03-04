@@ -186,3 +186,9 @@ TASK: LV-21 verification + closeout
 OUTPUT: post-release ops guard ve tum regresyon suiti PASS; LV-21 kapanisa hazir
 PROOF: cmd=npm run test:post-release-ops; npm run test:production-handover; npm run test:release-hardening; npm run test:benchmark-mode; npm run test:ios-migration; npm run test:ios-contract; npm run test:scaffold; npm run test:flow; npm run test:audit-compact | result=PASS
 NEXT: git add/commit -> pull --rebase -> push
+
+[TS=2026-03-04T14:37:44+03:00] AGENT=Cevher
+TASK: LV-22 staging checklist + smoke run
+OUTPUT: staging smoke checklist dokumani ve otomatik smoke test eklendi; readiness status smoke-validated seviyesine tasindi
+PROOF: cmd=npm run test:staging-smoke; npm run test:post-release-ops; npm run test:production-handover; npm run test:release-hardening | result=PASS
+NEXT: commit -> pull --rebase -> push; maintenance mode
