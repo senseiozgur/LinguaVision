@@ -1,9 +1,15 @@
-﻿export function createProviderAdapter() {
-  const allowedProviderErrors = new Set([
-    "PROVIDER_RATE_LIMIT",
-    "PROVIDER_TIMEOUT",
-    "PROVIDER_UPSTREAM_5XX"
-  ]);
+const KNOWN_PROVIDER_ERRORS = new Set([
+  "PROVIDER_RATE_LIMIT",
+  "PROVIDER_TIMEOUT",
+  "PROVIDER_UPSTREAM_5XX"
+]);
+
+function normalizeProviderError(code) {
+  if (KNOWN_PROVIDER_ERRORS.has(code)) return code;
+  return "PROVIDER_UPSTREAM_5XX";
+}
+
+export function createProviderAdapter() {
   const transientFailureSeen = new Set();
 
   return {
@@ -23,14 +29,12 @@
       const transientKey = `${jobId || "global"}:${tier}`;
       const shouldFailOnce = retryOnceSet.has(tier) && !transientFailureSeen.has(transientKey);
       if (shouldFail) {
-        const code = allowedProviderErrors.has(simulateFailCode)
-          ? simulateFailCode
-          : "PROVIDER_UPSTREAM_5XX";
+        const code = normalizeProviderError(simulateFailCode);
         return { ok: false, error: code, tier };
       }
       if (shouldFailOnce) {
         transientFailureSeen.add(transientKey);
-        return { ok: false, error: "PROVIDER_TIMEOUT", tier };
+        return { ok: false, error: normalizeProviderError("PROVIDER_TIMEOUT"), tier };
       }
 
       return {

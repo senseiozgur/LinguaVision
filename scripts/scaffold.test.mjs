@@ -111,7 +111,8 @@ const hasEventsEndpoint =
   jobsRoute.includes("router.get(\"/:id/events\"") &&
   jobsRoute.includes("deps.jobs.getEvents");
 const hasAsyncToggleWiring =
-  jobsRoute.includes("const asyncMode = req.query?.async === \"1\"") &&
+  jobsRoute.includes("const asyncRaw = req.query?.async") &&
+  jobsRoute.includes("const asyncMode = asyncRaw === \"1\"") &&
   jobsRoute.includes("worker_delay_ms") &&
   (jobsRoute.includes("deps.queue.enqueue") || jobsRoute.includes("void processJob"));
 const hasQueueWorkerWiring =
