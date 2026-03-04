@@ -2,7 +2,7 @@
 
 MODE: SINGLE_AGENT
 OWNER: Cevher
-ACTIVE_TASK: LV-16 cost-package enforcement regression matrix
+ACTIVE_TASK: LV-17 iOS client integration fixture and migration notes
 LAST_SYNC_BRANCH: main
 LAST_COMMIT: pending
 LAST_PUSH: pending
@@ -14,6 +14,6 @@ LAST_PUSH: pending
 4. Commit -> pull --rebase -> push.
 
 ## Last Update
-- TS: 1772618098
-- SUMMARY: LV-15 reliability playbook + rollback toggles completed.
-- NEXT_STEP: expand regression matrix for package limits and cost-tier enforcement.
+- TS: 1772619389
+- SUMMARY: LV-16 cost-package enforcement matrix completed with full PASS suite.
+- NEXT_STEP: add iOS integration fixture docs and migration checklist.

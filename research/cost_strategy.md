@@ -57,3 +57,8 @@
 - Cost guard iki asamali zorunlu: admission + runtime.
 - Paket fallback zinciri degistirilmeyecek (sabit).
 - strict/readable secici UI Phase-1 ilk teslimde yok (`REVIEW LATER`).
+
+## LV-16 Enforcement Snapshot
+- `free + strict` kombinasyonu policy geregi engellenir (deny).
+- Boyut limiti regresyonu: `free` paket 25MB ustu bloklanir, ayni boyut `pro` pakette kabul edilir.
+- Kanit: `backend/src/routes/jobs.routes.js`, `scripts/jobs_flow.test.mjs` (`package rule free+strict denied`, `package size matrix free deny / pro allow`)

@@ -35,11 +35,22 @@ async function waitForServerReady(timeoutMs = 12000) {
 }
 
 async function postJob({ targetLang = "tr", packageName = "free", remainingUnits } = {}) {
+  return postJobWithSize({ targetLang, packageName, remainingUnits, fileSizeBytes: 6 });
+}
+
+async function postJobWithSize({ targetLang = "tr", packageName = "free", remainingUnits, mode, fileSizeBytes = 6 } = {}) {
   const form = new FormData();
   form.append("target_lang", targetLang);
   form.append("package", packageName);
+  if (mode !== undefined) form.append("mode", String(mode));
   if (remainingUnits !== undefined) form.append("remaining_units", String(remainingUnits));
-  const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x0a, 0x25]); // %PDF\n%
+  const pdfBytes = new Uint8Array(fileSizeBytes);
+  pdfBytes[0] = 0x25;
+  pdfBytes[1] = 0x50;
+  pdfBytes[2] = 0x44;
+  pdfBytes[3] = 0x46;
+  pdfBytes[4] = 0x0a;
+  pdfBytes[5] = 0x25;
   const blob = new Blob([pdfBytes], { type: "application/pdf" });
   form.append("file", blob, "sample.pdf");
   return fetch(`${baseUrl}/jobs`, { method: "POST", body: form });
@@ -169,6 +180,45 @@ async function main() {
     });
     assert(invalidSourceLangRes.status === 400, `invalid source_lang expected 400 got ${invalidSourceLangRes.status}`);
     notes.push("PASS invalid source_lang rejected");
+
+    // Package enforcement matrix: free strict is denied by policy
+    const freeStrictRes = await postJobWithSize({
+      targetLang: "tr",
+      packageName: "free",
+      mode: "strict",
+      remainingUnits: 9999,
+      fileSizeBytes: 6
+    });
+    assert(freeStrictRes.status === 409, `free strict expected 409 got ${freeStrictRes.status}`);
+    const freeStrictJson = await freeStrictRes.json();
+    assert(
+      freeStrictJson.error === "INPUT_LIMIT_EXCEEDED",
+      `free strict expected INPUT_LIMIT_EXCEEDED got ${freeStrictJson.error}`
+    );
+    notes.push("PASS package rule free+strict denied");
+
+    // Package enforcement matrix: free size cap vs pro size allowance
+    const bigBytes = 26 * 1024 * 1024;
+    const freeBigRes = await postJobWithSize({
+      targetLang: "tr",
+      packageName: "free",
+      remainingUnits: 9999,
+      fileSizeBytes: bigBytes
+    });
+    assert(freeBigRes.status === 409, `free big file expected 409 got ${freeBigRes.status}`);
+    const freeBigJson = await freeBigRes.json();
+    assert(
+      freeBigJson.error === "INPUT_LIMIT_EXCEEDED",
+      `free big file expected INPUT_LIMIT_EXCEEDED got ${freeBigJson.error}`
+    );
+    const proBigRes = await postJobWithSize({
+      targetLang: "tr",
+      packageName: "pro",
+      remainingUnits: 9999,
+      fileSizeBytes: bigBytes
+    });
+    assert(proBigRes.status === 201, `pro big file expected 201 got ${proBigRes.status}`);
+    notes.push("PASS package size matrix free deny / pro allow");
 
     // Provider fallback: one tier fail -> next tier success
     const createFallbackRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });

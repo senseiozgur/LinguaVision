@@ -32,7 +32,8 @@
 - [x] LV-13 iOS-facing contract snapshot docs and compatibility guard tests
 - [x] LV-14 provider performance baselines and timeout policy tuning
 - [x] LV-15 lightweight reliability playbook and rollback toggles
-- [ ] LV-16 cost-package enforcement regression matrix
+- [x] LV-16 cost-package enforcement regression matrix
+- [ ] LV-17 iOS client integration fixture and migration notes
 
 ## Auto Loop (No Human Wait)
 1. Pick next top task.
@@ -66,3 +67,5 @@
   evidence: `backend/src/providers/provider.adapter.js`, `backend/src/routes/jobs.routes.js`, `scripts/jobs_flow.test.mjs`
 - [x] LV-15 rollback toggles + reliability playbook landed.
   evidence: `backend/src/server.js`, `backend/src/routes/jobs.routes.js`, `research/reliability_playbook.md`
+- [x] LV-16 package enforcement regression matrix landed.
+  evidence: `backend/src/routes/jobs.routes.js`, `scripts/jobs_flow.test.mjs`, `scripts/scaffold.test.mjs`

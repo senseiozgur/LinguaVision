@@ -89,7 +89,8 @@ const pdfPipeline = fs.readFileSync(path.join(root, "backend/src/pdf/layout.pipe
 const hasAdmissionGuard =
   jobsRoute.includes("validateAdmission") &&
   jobsRoute.includes("COST_GUARD_BLOCK") &&
-  jobsRoute.includes("INPUT_LIMIT_EXCEEDED");
+  jobsRoute.includes("INPUT_LIMIT_EXCEEDED") &&
+  jobsRoute.includes("packageName === \"free\" && mode === \"strict\"");
 const hasRuntimeGuard =
   jobsRoute.includes("validateRuntimeStep") &&
   jobsRoute.includes("runtimeGuard.error");

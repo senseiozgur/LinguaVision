@@ -204,3 +204,8 @@
   - PASS LV-15 rollback toggles reflected in metrics contract
   - PASS reliability playbook published
   - PASS full suite remains green
+- 2026-03-04T13:15:41+03:00 | npm run test:scaffold && npm run test:flow && npm run test:audit-compact && npm run test:ios-contract | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS LV-16 package enforcement regression matrix
+  - PASS free+strict deny and free/pro size-boundary behavior
+  - PASS full contract/cost regression suite

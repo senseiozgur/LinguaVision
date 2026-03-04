@@ -197,6 +197,9 @@ export function createJobsRouter(deps) {
     if (sourceLang && !isValidLangCode(sourceLang)) return res.status(400).json({ error: "invalid_input" });
     if (!ALLOWED_PACKAGES.has(packageName)) return res.status(400).json({ error: "invalid_input" });
     if (!ALLOWED_MODES.has(mode)) return res.status(400).json({ error: "invalid_input" });
+    if (packageName === "free" && mode === "strict") {
+      return res.status(409).json({ error: "INPUT_LIMIT_EXCEEDED" });
+    }
     if (remainingUnits !== null && (!Number.isFinite(remainingUnits) || remainingUnits < 0)) {
       return res.status(400).json({ error: "invalid_input" });
     }

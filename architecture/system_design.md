@@ -126,6 +126,12 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
   - `DISABLE_STRICT_QUALITY_GATE`
 - Reliability runbook documented in `research/reliability_playbook.md`.
 
+### LV-16 Status
+- Package enforcement matrix covered in regression suite:
+  - `free + strict` denied
+  - `free` size cap enforced
+  - `pro` size allowance validated on same input size
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`

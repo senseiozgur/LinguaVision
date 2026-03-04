@@ -144,3 +144,9 @@ TASK: LV-15 reliability playbook + rollback toggles
 OUTPUT: DISABLE_LAYOUT_PIPELINE / DISABLE_TRANSLATION_CACHE / DISABLE_STRICT_QUALITY_GATE togglelari eklendi; metrics ve iOS snapshot bu togglelari kapsayacak sekilde guncellendi
 PROOF: cmd=npm run test:scaffold; npm run test:flow; npm run test:audit-compact; npm run test:ios-contract | result=PASS/PASS/PASS/PASS | files=backend/src/server.js,backend/src/routes/jobs.routes.js,research/reliability_playbook.md,research/ios_contract_snapshot.json
 NEXT: LV-16 cost-package enforcement regression matrix
+
+[TS=2026-03-04T13:16:02+03:00] AGENT=Cevher
+TASK: LV-16 cost-package enforcement regression matrix
+OUTPUT: package policy matrix test kapsamı eklendi (free+strict deny, free size limit deny, pro same-size allow)
+PROOF: cmd=npm run test:scaffold; npm run test:flow; npm run test:audit-compact; npm run test:ios-contract | result=PASS/PASS/PASS/PASS | files=backend/src/routes/jobs.routes.js,scripts/jobs_flow.test.mjs,scripts/scaffold.test.mjs,research/cost_strategy.md
+NEXT: LV-17 iOS integration fixture + migration notes
