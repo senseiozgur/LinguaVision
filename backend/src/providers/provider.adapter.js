@@ -17,7 +17,12 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function createProviderAdapter({ cacheMaxEntries = 200, cachePersistPath = null } = {}) {
+export function createProviderAdapter({
+  cacheMaxEntries = 200,
+  cachePersistPath = null,
+  disableLayoutPipeline = false,
+  disableTranslationCache = false
+} = {}) {
   const transientFailureSeen = new Set();
   const translationCache = new TranslationCache({
     maxEntries: cacheMaxEntries,
@@ -85,7 +90,7 @@ export function createProviderAdapter({ cacheMaxEntries = 200, cachePersistPath 
       }
 
       const cacheKey = makeCacheKey({ inputBuffer, tier, mode, sourceLang, targetLang });
-      if (!hasSimulationControls) {
+      if (!disableTranslationCache && !hasSimulationControls) {
         const cached = translationCache.get(cacheKey);
         if (cached) {
           perf.provider_success_total += 1;
@@ -101,14 +106,26 @@ export function createProviderAdapter({ cacheMaxEntries = 200, cachePersistPath 
         }
       }
 
-      const pipeline = runLayoutPipeline({ inputBuffer, mode });
+      const pipeline = disableLayoutPipeline
+        ? {
+            outputBuffer: inputBuffer,
+            layoutMetrics: {
+              anchor_count: 0,
+              chunk_count: 0,
+              missing_anchor_count: 0,
+              overflow_count: 0,
+              moved_block_count: 0,
+              reflow_strategy: "disabled_passthrough"
+            }
+          }
+        : runLayoutPipeline({ inputBuffer, mode });
       if (simulateLayoutMissingAnchorCount > 0) {
         pipeline.layoutMetrics.missing_anchor_count = Number(simulateLayoutMissingAnchorCount);
       }
       if (simulateLayoutOverflowCount > 0) {
         pipeline.layoutMetrics.overflow_count = Number(simulateLayoutOverflowCount);
       }
-      if (!hasSimulationControls) {
+      if (!disableTranslationCache && !hasSimulationControls) {
         translationCache.set(cacheKey, {
           outputBuffer: pipeline.outputBuffer,
           layoutMetrics: pipeline.layoutMetrics
@@ -131,6 +148,8 @@ export function createProviderAdapter({ cacheMaxEntries = 200, cachePersistPath 
       return {
         ...translationCache.metrics(),
         ...perf,
+        cache_disabled: Boolean(disableTranslationCache),
+        layout_pipeline_disabled: Boolean(disableLayoutPipeline),
         provider_latency_avg_ms: avgLatency
       };
     }

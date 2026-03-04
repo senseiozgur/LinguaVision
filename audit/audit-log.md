@@ -199,3 +199,8 @@
   - PASS LV-14 provider perf counters and timeout tuning
   - PASS outage/timeout matrix coverage in flow test
   - PASS iOS contract snapshot updated for provider perf fields
+- 2026-03-04T12:53:59+03:00 | npm run test:scaffold && npm run test:flow && npm run test:audit-compact && npm run test:ios-contract | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS LV-15 rollback toggles reflected in metrics contract
+  - PASS reliability playbook published
+  - PASS full suite remains green

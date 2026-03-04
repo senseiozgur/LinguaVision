@@ -31,7 +31,8 @@
 - [x] LV-12 provider outage simulation matrix and iOS UX mapping hardening
 - [x] LV-13 iOS-facing contract snapshot docs and compatibility guard tests
 - [x] LV-14 provider performance baselines and timeout policy tuning
-- [ ] LV-15 lightweight reliability playbook and rollback toggles
+- [x] LV-15 lightweight reliability playbook and rollback toggles
+- [ ] LV-16 cost-package enforcement regression matrix
 
 ## Auto Loop (No Human Wait)
 1. Pick next top task.
@@ -63,3 +64,5 @@
   evidence: `research/ios_contract_snapshot.json`, `scripts/ios_contract_compat.test.mjs`, `backend/package.json`
 - [x] LV-14 provider perf counters + timeout tuning knobs landed.
   evidence: `backend/src/providers/provider.adapter.js`, `backend/src/routes/jobs.routes.js`, `scripts/jobs_flow.test.mjs`
+- [x] LV-15 rollback toggles + reliability playbook landed.
+  evidence: `backend/src/server.js`, `backend/src/routes/jobs.routes.js`, `research/reliability_playbook.md`

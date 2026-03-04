@@ -131,6 +131,9 @@ const hasMetricsEndpoint =
   jobsRoute.includes("provider_fallback_total") &&
   jobsRoute.includes("runtime_guard_block_total") &&
   jobsRoute.includes("provider_timeout_ms") &&
+  jobsRoute.includes("feature_disable_layout_pipeline") &&
+  jobsRoute.includes("feature_disable_translation_cache") &&
+  jobsRoute.includes("feature_disable_strict_quality_gate") &&
   jobsRoute.includes("queue_depth") &&
   jobsRoute.includes("getCacheMetrics");
 const hasAsyncToggleWiring =
@@ -159,6 +162,12 @@ const hasUxHintMappingWiring =
 const hasProviderTimeoutSimulationWiring =
   jobsRoute.includes("simulate_provider_latency_ms") &&
   jobsRoute.includes("provider_timeout_ms");
+const serverSrc = fs.readFileSync(path.join(root, "backend/src/server.js"), "utf8");
+const hasRollbackToggleWiring =
+  serverSrc.includes("DISABLE_LAYOUT_PIPELINE") &&
+  serverSrc.includes("DISABLE_TRANSLATION_CACHE") &&
+  serverSrc.includes("DISABLE_STRICT_QUALITY_GATE") &&
+  jobsRoute.includes("disableStrictQualityGate");
 const hasLayoutPipelineWiring =
   providerAdapter.includes("runLayoutPipeline") &&
   providerAdapter.includes("layoutMetrics") &&
@@ -189,6 +198,7 @@ notes.push(`${hasTranslationCacheWiring ? "PASS" : "FAIL"} translation cache wir
 notes.push(`${hasStrictQualityGateWiring ? "PASS" : "FAIL"} strict quality gate wiring`);
 notes.push(`${hasUxHintMappingWiring ? "PASS" : "FAIL"} ux hint mapping wiring`);
 notes.push(`${hasProviderTimeoutSimulationWiring ? "PASS" : "FAIL"} provider timeout simulation wiring`);
+notes.push(`${hasRollbackToggleWiring ? "PASS" : "FAIL"} rollback toggle wiring`);
 if (
   !hasAdmissionGuard ||
   !hasRuntimeGuard ||
@@ -207,7 +217,8 @@ if (
   !hasTranslationCacheWiring ||
   !hasStrictQualityGateWiring ||
   !hasUxHintMappingWiring ||
-  !hasProviderTimeoutSimulationWiring
+  !hasProviderTimeoutSimulationWiring ||
+  !hasRollbackToggleWiring
 ) {
   pass = false;
 }

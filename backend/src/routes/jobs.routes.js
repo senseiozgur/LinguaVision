@@ -41,6 +41,11 @@ function mapErrorToUxHint(errorCode) {
 
 export function createJobsRouter(deps) {
   const router = express.Router();
+  const featureFlags = deps.featureFlags || {
+    disableLayoutPipeline: false,
+    disableTranslationCache: false,
+    disableStrictQualityGate: false
+  };
   const stats = deps.stats || {
     jobs_create_total: 0,
     jobs_run_total: 0,
@@ -134,6 +139,7 @@ export function createJobsRouter(deps) {
 
       const qualityGateFailed =
         route.mode === "strict" &&
+        !featureFlags.disableStrictQualityGate &&
         ((translated.layoutMetrics?.missing_anchor_count || 0) > 0 ||
           (translated.layoutMetrics?.overflow_count || 0) > 0);
       if (qualityGateFailed) {
@@ -333,6 +339,9 @@ export function createJobsRouter(deps) {
     return res.status(200).json({
       ...stats,
       ...cacheMetrics,
+      feature_disable_layout_pipeline: Boolean(featureFlags.disableLayoutPipeline),
+      feature_disable_translation_cache: Boolean(featureFlags.disableTranslationCache),
+      feature_disable_strict_quality_gate: Boolean(featureFlags.disableStrictQualityGate),
       queue_depth: queueDepth,
       queue_busy: queueBusy
     });

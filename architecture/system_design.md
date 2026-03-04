@@ -119,6 +119,13 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - Provider performance counters exposed (`provider_calls_total`, `provider_success_total`, `provider_fail_total`, `provider_latency_avg_ms`).
 - Timeout policy tuning supported via run-time query knobs (`simulate_provider_latency_ms`, `provider_timeout_ms`).
 
+### LV-15 Status
+- Rollback toggles added for critical paths:
+  - `DISABLE_LAYOUT_PIPELINE`
+  - `DISABLE_TRANSLATION_CACHE`
+  - `DISABLE_STRICT_QUALITY_GATE`
+- Reliability runbook documented in `research/reliability_playbook.md`.
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`

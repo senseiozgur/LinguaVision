@@ -2,7 +2,7 @@
 
 MODE: SINGLE_AGENT
 OWNER: Cevher
-ACTIVE_TASK: LV-15 reliability playbook and rollback toggles
+ACTIVE_TASK: LV-16 cost-package enforcement regression matrix
 LAST_SYNC_BRANCH: main
 LAST_COMMIT: pending
 LAST_PUSH: pending
@@ -14,6 +14,6 @@ LAST_PUSH: pending
 4. Commit -> pull --rebase -> push.
 
 ## Last Update
-- TS: 1772617386
-- SUMMARY: LV-14 provider performance baseline + timeout tuning completed.
-- NEXT_STEP: define rollback toggles and reliability playbook checks.
+- TS: 1772618098
+- SUMMARY: LV-15 reliability playbook + rollback toggles completed.
+- NEXT_STEP: expand regression matrix for package limits and cost-tier enforcement.

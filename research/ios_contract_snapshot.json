@@ -69,7 +69,10 @@
         "cache_entries",
         "cache_max_entries",
         "queue_depth",
-        "queue_busy"
+        "queue_busy",
+        "feature_disable_layout_pipeline",
+        "feature_disable_translation_cache",
+        "feature_disable_strict_quality_gate"
       ]
     }
   }

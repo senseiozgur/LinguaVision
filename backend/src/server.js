@@ -18,9 +18,19 @@ const cachePersistPath =
   process.env.TRANSLATION_CACHE_PERSIST === "0"
     ? null
     : path.resolve(__dirname, "../storage-data/translation-cache.json");
-const providerAdapter = createProviderAdapter({ cacheMaxEntries, cachePersistPath });
+const featureFlags = {
+  disableLayoutPipeline: process.env.DISABLE_LAYOUT_PIPELINE === "1",
+  disableTranslationCache: process.env.DISABLE_TRANSLATION_CACHE === "1",
+  disableStrictQualityGate: process.env.DISABLE_STRICT_QUALITY_GATE === "1"
+};
+const providerAdapter = createProviderAdapter({
+  cacheMaxEntries,
+  cachePersistPath,
+  disableLayoutPipeline: featureFlags.disableLayoutPipeline,
+  disableTranslationCache: featureFlags.disableTranslationCache
+});
 
-const shared = { jobs, storage, providerAdapter };
+const shared = { jobs, storage, providerAdapter, featureFlags };
 const queue = new JobQueue({
   processFn: async (payload) => {
     if (!shared.processJob) return;

@@ -437,6 +437,15 @@ async function main() {
     assert(typeof metrics.jobs_failed_total === "number", "metrics jobs_failed_total should be number");
     assert(typeof metrics.provider_calls_total === "number", "metrics provider_calls_total should be number");
     assert(typeof metrics.provider_latency_avg_ms === "number", "metrics provider_latency_avg_ms should be number");
+    assert(typeof metrics.feature_disable_layout_pipeline === "boolean", "metrics feature_disable_layout_pipeline bool");
+    assert(
+      typeof metrics.feature_disable_translation_cache === "boolean",
+      "metrics feature_disable_translation_cache bool"
+    );
+    assert(
+      typeof metrics.feature_disable_strict_quality_gate === "boolean",
+      "metrics feature_disable_strict_quality_gate bool"
+    );
     assert(metrics.provider_retry_total >= 1, "metrics provider_retry_total should be >=1");
     assert(metrics.provider_fallback_total >= 1, "metrics provider_fallback_total should be >=1");
     notes.push("PASS /jobs/metrics minimal observability contract");
