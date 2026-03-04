@@ -140,6 +140,11 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - Strict/readable benchmark baseline added (`scripts/benchmark_mode_baseline.mjs`).
 - Baseline report published in `research/benchmark_baseline.md`.
 
+### LV-19 Status
+- Release hardening checklist published (`research/release_hardening.md`).
+- Final risk register published (`research/risk_register.md`).
+- Release hardening guard test added (`scripts/release_hardening.test.mjs`).
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`

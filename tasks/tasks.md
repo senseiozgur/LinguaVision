@@ -35,7 +35,8 @@
 - [x] LV-16 cost-package enforcement regression matrix
 - [x] LV-17 iOS client integration fixture and migration notes
 - [x] LV-18 strict/readable performance benchmark baselines
-- [ ] LV-19 release hardening checklist and final risk register
+- [x] LV-19 release hardening checklist and final risk register
+- [ ] LV-20 production readiness summary and handover pack
 
 ## Auto Loop (No Human Wait)
 1. Pick next top task.
@@ -73,5 +74,9 @@
   evidence: `backend/src/routes/jobs.routes.js`, `scripts/jobs_flow.test.mjs`, `scripts/scaffold.test.mjs`
 - [x] LV-17 iOS migration notes and guard test landed.
   evidence: `research/ios_migration_notes.md`, `scripts/ios_migration_notes.test.mjs`, `backend/package.json`
+- [x] LV-18 strict/readable benchmark baseline landed.
+  evidence: `scripts/benchmark_mode_baseline.mjs`, `research/benchmark_baseline.md`, `backend/package.json`
+- [x] LV-19 release hardening checklist + risk register landed.
+  evidence: `research/release_hardening.md`, `research/risk_register.md`, `scripts/release_hardening.test.mjs`
 - [x] LV-18 strict/readable benchmark baseline landed.
   evidence: `scripts/benchmark_mode_baseline.mjs`, `research/benchmark_baseline.md`, `backend/package.json`
