@@ -118,6 +118,11 @@ async function main() {
     assert(blocked.error === "COST_GUARD_BLOCK", `blocked error expected COST_GUARD_BLOCK got ${blocked.error}`);
     notes.push("PASS COST_GUARD_BLOCK admission");
 
+    // Baseline hardening: invalid package should fail fast
+    const invalidPkgRes = await postJob({ targetLang: "tr", packageName: "enterprise", remainingUnits: 100 });
+    assert(invalidPkgRes.status === 400, `invalid package expected 400 got ${invalidPkgRes.status}`);
+    notes.push("PASS invalid package rejected");
+
     // Provider fallback: one tier fail -> next tier success
     const createFallbackRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
     assert(createFallbackRes.status === 201, `fallback create expected 201 got ${createFallbackRes.status}`);
@@ -291,6 +296,15 @@ async function main() {
     const notFoundRes = await fetch(`${baseUrl}/jobs/nope/run`, { method: "POST" });
     assert(notFoundRes.status === 404, `run missing job expected 404 got ${notFoundRes.status}`);
     notes.push("PASS job_not_found contract");
+
+    const badRunCreateRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 9999 });
+    assert(badRunCreateRes.status === 201, `bad run create expected 201 got ${badRunCreateRes.status}`);
+    const badRunJob = await badRunCreateRes.json();
+    const badRunRes = await fetch(`${baseUrl}/jobs/${badRunJob.job_id}/run?simulate_fail_tier=gold`, {
+      method: "POST"
+    });
+    assert(badRunRes.status === 400, `invalid run tier expected 400 got ${badRunRes.status}`);
+    notes.push("PASS invalid run tier rejected");
 
     const eventsMissingRes = await fetch(`${baseUrl}/jobs/nope/events`);
     assert(eventsMissingRes.status === 404, `events missing job expected 404 got ${eventsMissingRes.status}`);

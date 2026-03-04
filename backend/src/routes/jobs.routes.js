@@ -4,6 +4,9 @@ import { estimateStepUnits, validateAdmission, validateRuntimeStep } from "../ro
 import { getTierMultiplier, planRoute } from "../providers/provider.router.js";
 
 const upload = multer({ storage: multer.memoryStorage() });
+const ALLOWED_PACKAGES = new Set(["free", "pro", "premium"]);
+const ALLOWED_MODES = new Set(["readable", "strict"]);
+const ALLOWED_TIERS = new Set(["economy", "standard", "premium"]);
 const KNOWN_PROVIDER_ERRORS = new Set([
   "PROVIDER_RATE_LIMIT",
   "PROVIDER_TIMEOUT",
@@ -17,6 +20,18 @@ function sleep(ms) {
 function normalizeProviderError(code) {
   if (KNOWN_PROVIDER_ERRORS.has(code)) return code;
   return "PROVIDER_UPSTREAM_5XX";
+}
+
+function normalizeCsvParam(value) {
+  return (value || "")
+    .toString()
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function hasUnknownTier(tiers) {
+  return tiers.some((tier) => !ALLOWED_TIERS.has(tier));
 }
 
 export function createJobsRouter(deps) {
@@ -101,12 +116,18 @@ export function createJobsRouter(deps) {
 
   router.post("/", upload.single("file"), async (req, res) => {
     const file = req.file;
-    const targetLang = req.body?.target_lang;
-    const packageName = req.body?.package || "free";
-    const mode = req.body?.mode || "readable";
-    const remainingUnits = req.body?.remaining_units ? Number(req.body.remaining_units) : null;
+    const targetLang = (req.body?.target_lang || "").toString().trim();
+    const packageName = (req.body?.package || "free").toString().trim().toLowerCase();
+    const mode = (req.body?.mode || "readable").toString().trim().toLowerCase();
+    const remainingUnitsRaw = req.body?.remaining_units;
+    const remainingUnits = remainingUnitsRaw !== undefined ? Number(remainingUnitsRaw) : null;
     if (!file) return res.status(400).json({ error: "invalid_input" });
     if (!targetLang) return res.status(400).json({ error: "invalid_input" });
+    if (!ALLOWED_PACKAGES.has(packageName)) return res.status(400).json({ error: "invalid_input" });
+    if (!ALLOWED_MODES.has(mode)) return res.status(400).json({ error: "invalid_input" });
+    if (remainingUnits !== null && (!Number.isFinite(remainingUnits) || remainingUnits < 0)) {
+      return res.status(400).json({ error: "invalid_input" });
+    }
 
     const fileSizeBytes = file.size || file.buffer.length;
     const stepUnits = estimateStepUnits({ fileSizeBytes, mode });
@@ -140,20 +161,24 @@ export function createJobsRouter(deps) {
     if (!job) return res.status(404).json({ error: "job_not_found" });
     if (job.status !== "PENDING") return res.status(409).json({ error: "job_already_running" });
 
-    const simulateFailTier = (req.query?.simulate_fail_tier || "").toString() || null;
-    const simulateFailTiers = (req.query?.simulate_fail_tiers || "")
-      .toString()
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const simulateFailTier = (req.query?.simulate_fail_tier || "").toString().trim() || null;
+    const simulateFailTiers = normalizeCsvParam(req.query?.simulate_fail_tiers);
     const simulateFailCode = (req.query?.simulate_fail_code || "").toString().trim() || "PROVIDER_TIMEOUT";
-    const simulateRetryOnceTiers = (req.query?.simulate_retry_once_tiers || "")
-      .toString()
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const workerDelayMs = Math.max(0, Number(req.query?.worker_delay_ms || 0));
-    const asyncMode = req.query?.async === "1";
+    const simulateRetryOnceTiers = normalizeCsvParam(req.query?.simulate_retry_once_tiers);
+    const workerDelayRaw = Number(req.query?.worker_delay_ms || 0);
+    if (!Number.isFinite(workerDelayRaw)) return res.status(400).json({ error: "invalid_input" });
+    const workerDelayMs = Math.max(0, workerDelayRaw);
+    const asyncRaw = req.query?.async;
+    if (asyncRaw !== undefined && asyncRaw !== "0" && asyncRaw !== "1") {
+      return res.status(400).json({ error: "invalid_input" });
+    }
+    const asyncMode = asyncRaw === "1";
+    if (simulateFailTier && !ALLOWED_TIERS.has(simulateFailTier)) {
+      return res.status(400).json({ error: "invalid_input" });
+    }
+    if (hasUnknownTier(simulateFailTiers) || hasUnknownTier(simulateRetryOnceTiers)) {
+      return res.status(400).json({ error: "invalid_input" });
+    }
 
     deps.jobs.update(job.id, { status: "PROCESSING", progress_pct: 30 });
 
