@@ -40,3 +40,15 @@ TASK: GIT-SYNC branch alignment and clean rebase
 OUTPUT: feat/multi-agent-start bulunamadi; aktif branch main ile fetch/checkout/status/pull --rebase tamamlandi
 PROOF: cmds=git fetch origin; git checkout feat/multi-agent-start(failed); git checkout main; git status --short(clean); git pull --rebase origin main(Already up to date)
 NEXT: baton Olgun'a devredildi; Olgun LV-03/LV-04 backlogdan self-claim ile devam edecek
+
+[TS=2026-03-04T03:37:54+03:00] AGENT=Cevher
+TASK: ACK-TURN LV-01
+OUTPUT: turn acknowledged; LV-01 baseline hardening turu baslatildi
+PROOF: files=backend/src/routes/jobs.routes.js,scripts/jobs_flow.test.mjs,tasks/tasks.md,chat/handoff.md
+NEXT: LV-01 hardening delta + test proof + feat commit + rebase + push + baton Olgun
+
+[TS=2026-03-04T03:40:31+03:00] AGENT=Cevher
+TASK: LV-01 Jobs route baseline hardening
+OUTPUT: target/source language format validation eklendi; invalid input rejection kapsamı genisletildi
+PROOF: cmd=npm run test:scaffold; npm run test:flow | result=PASS/PASS | new_checks=invalid target_lang, invalid source_lang | files=backend/src/routes/jobs.routes.js,scripts/jobs_flow.test.mjs,scripts/scaffold.test.mjs
+NEXT: git add -A -> commit feat: complete LV-01 -> pull --rebase origin main -> push origin main -> handoff Olgun

@@ -25,6 +25,11 @@ function hasUnknownTier(tiers) {
   return tiers.some((tier) => !ALLOWED_TIERS.has(tier));
 }
 
+function isValidLangCode(value) {
+  // Accept ISO-like language codes: tr, en, en-US, pt-BR.
+  return /^[a-z]{2,3}(-[A-Z]{2})?$/.test((value || "").toString().trim());
+}
+
 export function createJobsRouter(deps) {
   const router = express.Router();
 
@@ -110,10 +115,13 @@ export function createJobsRouter(deps) {
     const targetLang = (req.body?.target_lang || "").toString().trim();
     const packageName = (req.body?.package || "free").toString().trim().toLowerCase();
     const mode = (req.body?.mode || "readable").toString().trim().toLowerCase();
+    const sourceLang = req.body?.source_lang ? req.body.source_lang.toString().trim() : null;
     const remainingUnitsRaw = req.body?.remaining_units;
     const remainingUnits = remainingUnitsRaw !== undefined ? Number(remainingUnitsRaw) : null;
     if (!file) return res.status(400).json({ error: "invalid_input" });
     if (!targetLang) return res.status(400).json({ error: "invalid_input" });
+    if (!isValidLangCode(targetLang)) return res.status(400).json({ error: "invalid_input" });
+    if (sourceLang && !isValidLangCode(sourceLang)) return res.status(400).json({ error: "invalid_input" });
     if (!ALLOWED_PACKAGES.has(packageName)) return res.status(400).json({ error: "invalid_input" });
     if (!ALLOWED_MODES.has(mode)) return res.status(400).json({ error: "invalid_input" });
     if (remainingUnits !== null && (!Number.isFinite(remainingUnits) || remainingUnits < 0)) {
@@ -132,7 +140,7 @@ export function createJobsRouter(deps) {
 
     const temp = deps.jobs.create({
       target_lang: targetLang,
-      source_lang: req.body?.source_lang || null,
+      source_lang: sourceLang,
       input_file_path: ""
     });
 

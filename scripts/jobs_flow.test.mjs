@@ -45,6 +45,18 @@ async function postJob({ targetLang = "tr", packageName = "free", remainingUnits
   return fetch(`${baseUrl}/jobs`, { method: "POST", body: form });
 }
 
+async function postJobRaw(fields = {}) {
+  const form = new FormData();
+  if (fields.target_lang !== undefined) form.append("target_lang", String(fields.target_lang));
+  if (fields.package !== undefined) form.append("package", String(fields.package));
+  if (fields.source_lang !== undefined) form.append("source_lang", String(fields.source_lang));
+  if (fields.remaining_units !== undefined) form.append("remaining_units", String(fields.remaining_units));
+  const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x0a, 0x25]);
+  const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  form.append("file", blob, "sample.pdf");
+  return fetch(`${baseUrl}/jobs`, { method: "POST", body: form });
+}
+
 async function getJob(jobId) {
   const res = await fetch(`${baseUrl}/jobs/${jobId}`);
   return res.json();
@@ -122,6 +134,19 @@ async function main() {
     const invalidPkgRes = await postJob({ targetLang: "tr", packageName: "enterprise", remainingUnits: 100 });
     assert(invalidPkgRes.status === 400, `invalid package expected 400 got ${invalidPkgRes.status}`);
     notes.push("PASS invalid package rejected");
+
+    const invalidLangRes = await postJobRaw({ target_lang: "turkish", package: "free", remaining_units: 100 });
+    assert(invalidLangRes.status === 400, `invalid target_lang expected 400 got ${invalidLangRes.status}`);
+    notes.push("PASS invalid target_lang rejected");
+
+    const invalidSourceLangRes = await postJobRaw({
+      target_lang: "tr",
+      source_lang: "english",
+      package: "free",
+      remaining_units: 100
+    });
+    assert(invalidSourceLangRes.status === 400, `invalid source_lang expected 400 got ${invalidSourceLangRes.status}`);
+    notes.push("PASS invalid source_lang rejected");
 
     // Provider fallback: one tier fail -> next tier success
     const createFallbackRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });

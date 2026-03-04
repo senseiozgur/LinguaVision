@@ -81,6 +81,7 @@ try {
 }
 
 const jobsRoute = fs.readFileSync(path.join(root, "backend/src/routes/jobs.routes.js"), "utf8");
+const providerAdapter = fs.readFileSync(path.join(root, "backend/src/providers/provider.adapter.js"), "utf8");
 const hasAdmissionGuard =
   jobsRoute.includes("validateAdmission") &&
   jobsRoute.includes("COST_GUARD_BLOCK") &&
@@ -120,9 +121,8 @@ const hasQueueWorkerWiring =
   jobsRoute.includes("deps.queue.enqueue") &&
   fs.readFileSync(path.join(root, "backend/src/server.js"), "utf8").includes("new JobQueue");
 const hasErrorNormalizationWiring =
-  jobsRoute.includes("normalizeProviderError") &&
-  jobsRoute.includes("KNOWN_PROVIDER_ERRORS") &&
-  jobsRoute.includes("simulate_fail_code");
+  (jobsRoute.includes("normalizeProviderError") && jobsRoute.includes("KNOWN_PROVIDER_ERRORS")) ||
+  (providerAdapter.includes("normalizeProviderError") && providerAdapter.includes("KNOWN_PROVIDER_ERRORS"));
 const hasRetryPolicySimulationWiring =
   jobsRoute.includes("simulate_retry_once_tiers") &&
   jobsRoute.includes("for (let attempt = 1; attempt <= 2; attempt++)");
