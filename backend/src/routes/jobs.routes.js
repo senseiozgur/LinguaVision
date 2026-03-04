@@ -1,4 +1,4 @@
-﻿import express from "express";
+import express from "express";
 import multer from "multer";
 import { estimateStepUnits, validateAdmission, validateRuntimeStep } from "../routing/cost.guard.js";
 import { getTierMultiplier, planRoute } from "../providers/provider.router.js";
@@ -7,20 +7,11 @@ const upload = multer({ storage: multer.memoryStorage() });
 const ALLOWED_PACKAGES = new Set(["free", "pro", "premium"]);
 const ALLOWED_MODES = new Set(["readable", "strict"]);
 const ALLOWED_TIERS = new Set(["economy", "standard", "premium"]);
-const KNOWN_PROVIDER_ERRORS = new Set([
-  "PROVIDER_RATE_LIMIT",
-  "PROVIDER_TIMEOUT",
-  "PROVIDER_UPSTREAM_5XX"
-]);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function normalizeProviderError(code) {
-  if (KNOWN_PROVIDER_ERRORS.has(code)) return code;
-  return "PROVIDER_UPSTREAM_5XX";
-}
 
 function normalizeCsvParam(value) {
   return (value || "")
@@ -85,7 +76,7 @@ export function createJobsRouter(deps) {
         });
 
         if (translated.ok) break;
-        lastError = normalizeProviderError(translated.error);
+        lastError = translated.error || "PROVIDER_UPSTREAM_5XX";
       }
 
       if (!translated || !translated.ok) continue;
