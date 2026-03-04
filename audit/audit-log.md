@@ -159,3 +159,8 @@
   - PASS LV-06.1 layout pipeline wiring (parse/anchor/chunk/reflow)
   - PASS jobs polling payload includes layout_metrics
   - PASS full regression suite after architecture slice integration
+- 2026-03-04T10:44:49+03:00 | npm run test:scaffold && npm run test:flow | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS LV-07 idempotent run contract (PROCESSING/READY safe rerun)
+  - PASS /jobs/metrics minimal observability contract
+  - PASS full regression after LV-07 integration

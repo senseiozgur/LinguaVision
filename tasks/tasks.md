@@ -23,7 +23,8 @@
 
 ## Current Focus
 - [x] LV-06 PDF layout-preserving translation architecture (implementation-ready slice)
-- [ ] LV-07 iOS contract hardening + idempotency/observability minimal set
+- [x] LV-07 iOS contract hardening + idempotency/observability minimal set
+- [ ] LV-08 PDF layout quality metrics and cache keying hardening
 
 ## Auto Loop (No Human Wait)
 1. Pick next top task.
@@ -39,3 +40,5 @@
   evidence: `backend/src/pdf/layout.pipeline.js`, `backend/src/providers/provider.adapter.js`, `backend/src/routes/jobs.routes.js`
 - [x] Jobs response now exposes `layout_metrics` for polling/debug visibility.
   evidence: `backend/src/routes/jobs.routes.js`, `backend/src/jobs/job.store.js`
+- [x] LV-07 idempotent run semantics and lightweight metrics endpoint landed.
+  evidence: `backend/src/routes/jobs.routes.js`, `scripts/jobs_flow.test.mjs`, `scripts/scaffold.test.mjs`

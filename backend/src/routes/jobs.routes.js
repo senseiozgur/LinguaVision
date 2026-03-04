@@ -32,6 +32,18 @@ function isValidLangCode(value) {
 
 export function createJobsRouter(deps) {
   const router = express.Router();
+  const stats = deps.stats || {
+    jobs_create_total: 0,
+    jobs_run_total: 0,
+    jobs_get_total: 0,
+    jobs_events_total: 0,
+    jobs_output_total: 0
+  };
+  deps.stats = stats;
+
+  function bump(key) {
+    stats[key] = (stats[key] || 0) + 1;
+  }
 
   async function processJob({
     jobId,
@@ -112,6 +124,7 @@ export function createJobsRouter(deps) {
   deps.processJob = processJob;
 
   router.post("/", upload.single("file"), async (req, res) => {
+    bump("jobs_create_total");
     const file = req.file;
     const targetLang = (req.body?.target_lang || "").toString().trim();
     const packageName = (req.body?.package || "free").toString().trim().toLowerCase();
@@ -157,8 +170,17 @@ export function createJobsRouter(deps) {
   });
 
   router.post("/:id/run", async (req, res) => {
+    bump("jobs_run_total");
     const job = deps.jobs.get(req.params.id);
     if (!job) return res.status(404).json({ error: "job_not_found" });
+    if (job.status === "PROCESSING" || job.status === "READY") {
+      return res.status(202).json({
+        accepted: true,
+        job_id: job.id,
+        status: job.status,
+        idempotent: true
+      });
+    }
     if (job.status !== "PENDING") return res.status(409).json({ error: "job_already_running" });
 
     const simulateFailTier = (req.query?.simulate_fail_tier || "").toString().trim() || null;
@@ -220,7 +242,19 @@ export function createJobsRouter(deps) {
     return res.status(202).json({ accepted: true, job_id: job.id, status: "PROCESSING" });
   });
 
+  router.get("/metrics", (req, res) => {
+    const queue = deps.queue || null;
+    const queueDepth = queue && Array.isArray(queue.q) ? queue.q.length : 0;
+    const queueBusy = Boolean(queue && queue.busy);
+    return res.status(200).json({
+      ...stats,
+      queue_depth: queueDepth,
+      queue_busy: queueBusy
+    });
+  });
+
   router.get("/:id", (req, res) => {
+    bump("jobs_get_total");
     const job = deps.jobs.get(req.params.id);
     if (!job) return res.status(404).json({ error: "job_not_found" });
     return res.status(200).json({
@@ -236,12 +270,14 @@ export function createJobsRouter(deps) {
   });
 
   router.get("/:id/events", (req, res) => {
+    bump("jobs_events_total");
     const events = deps.jobs.getEvents(req.params.id);
     if (!events) return res.status(404).json({ error: "job_not_found" });
     return res.status(200).json({ job_id: req.params.id, events });
   });
 
   router.get("/:id/output", async (req, res) => {
+    bump("jobs_output_total");
     const job = deps.jobs.get(req.params.id);
     if (!job) return res.status(404).json({ error: "job_not_found" });
     if (job.status !== "READY") return res.status(409).json({ error: "job_not_ready" });

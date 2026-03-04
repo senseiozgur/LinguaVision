@@ -88,3 +88,9 @@ TASK: LV-06.1 layout-preserving pipeline integration
 OUTPUT: parse->anchor->chunk->reflow minimal pipeline eklendi, provider adapter'a baglandi, GET /jobs payload'ina layout_metrics alani eklendi
 PROOF: cmd=npm run test:scaffold; npm run test:flow | result=PASS/PASS | files=backend/src/pdf/layout.pipeline.js,backend/src/providers/provider.adapter.js,backend/src/routes/jobs.routes.js,backend/src/jobs/job.store.js,scripts/scaffold.test.mjs,scripts/jobs_flow.test.mjs
 NEXT: LV-07 (idempotent run + minimal observability counters) implementation slice
+
+[TS=2026-03-04T10:45:10+03:00] AGENT=Cevher
+TASK: LV-07 idempotency and minimal observability
+OUTPUT: run endpoint idempotent hale getirildi (PROCESSING/READY), /jobs/metrics endpoint'i eklendi
+PROOF: cmd=npm run test:scaffold; npm run test:flow | result=PASS/PASS | files=backend/src/routes/jobs.routes.js,scripts/jobs_flow.test.mjs,scripts/scaffold.test.mjs,architecture/system_design.md
+NEXT: LV-08 cache keying + layout quality counters hardening

@@ -97,7 +97,8 @@ const hasFallbackChain =
 const hasJobsCreateContract =
   jobsRoute.includes("res.status(201).json({ job_id: temp.id, status: \"PENDING\" })");
 const hasJobsRunContract =
-  jobsRoute.includes("res.status(202).json({ accepted: true, job_id: job.id, status: \"PROCESSING\" })");
+  jobsRoute.includes("res.status(202).json({ accepted: true, job_id: job.id, status: \"PROCESSING\" })") &&
+  jobsRoute.includes("idempotent: true");
 const hasJobsGetContract =
   jobsRoute.includes("job_id: job.id") &&
   jobsRoute.includes("status: job.status") &&
@@ -114,6 +115,10 @@ const hasJobsErrorCodes =
 const hasEventsEndpoint =
   jobsRoute.includes("router.get(\"/:id/events\"") &&
   jobsRoute.includes("deps.jobs.getEvents");
+const hasMetricsEndpoint =
+  jobsRoute.includes("router.get(\"/metrics\"") &&
+  jobsRoute.includes("jobs_create_total") &&
+  jobsRoute.includes("queue_depth");
 const hasAsyncToggleWiring =
   jobsRoute.includes("const asyncRaw = req.query?.async") &&
   jobsRoute.includes("const asyncMode = asyncRaw === \"1\"") &&
@@ -143,6 +148,7 @@ notes.push(`${hasJobsRunContract ? "PASS" : "FAIL"} jobs run response contract`)
 notes.push(`${hasJobsGetContract ? "PASS" : "FAIL"} jobs get response state contract`);
 notes.push(`${hasJobsErrorCodes ? "PASS" : "FAIL"} jobs error code contract`);
 notes.push(`${hasEventsEndpoint ? "PASS" : "FAIL"} jobs events endpoint contract`);
+notes.push(`${hasMetricsEndpoint ? "PASS" : "FAIL"} jobs metrics endpoint contract`);
 notes.push(`${hasAsyncToggleWiring ? "PASS" : "FAIL"} async queue simulation wiring`);
 notes.push(`${hasQueueWorkerWiring ? "PASS" : "FAIL"} queue worker adapter wiring`);
 notes.push(`${hasErrorNormalizationWiring ? "PASS" : "FAIL"} provider error normalization wiring`);
@@ -157,6 +163,7 @@ if (
   !hasJobsGetContract ||
   !hasJobsErrorCodes ||
   !hasEventsEndpoint ||
+  !hasMetricsEndpoint ||
   !hasAsyncToggleWiring ||
   !hasQueueWorkerWiring ||
   !hasErrorNormalizationWiring ||

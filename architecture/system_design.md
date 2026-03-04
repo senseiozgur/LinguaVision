@@ -18,6 +18,8 @@ PDF cevirisinde format bozulmasini minimumda tutan, maliyet kontrollu, fallback-
   evidence: `backend/src/providers/provider.router.js`, `backend/src/providers/provider.adapter.js`, `backend/src/routes/jobs.routes.js`
 - Layout-preserving pipeline v1 (parse->anchor->chunk->reflow, passthrough writer)
   evidence: `backend/src/pdf/layout.pipeline.js`, `backend/src/providers/provider.adapter.js`, `backend/src/routes/jobs.routes.js`
+- Lightweight observability endpoint for runtime counters
+  evidence: `backend/src/routes/jobs.routes.js` (`GET /jobs/metrics`)
 - End-to-end proof tests
   evidence: `scripts/scaffold.test.mjs`, `scripts/jobs_flow.test.mjs`
 
@@ -80,11 +82,16 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - Minimal pipeline implemented and wired into provider adapter.
 - `GET /jobs/{id}` now includes `layout_metrics` for iOS/debug observability.
 
+### LV-07 Status
+- `POST /jobs/{id}/run` supports idempotent response for `PROCESSING|READY`.
+- `GET /jobs/metrics` exposes minimal counters + queue visibility.
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
-- `POST /jobs/{id}/run` -> `{ accepted, job_id, status }`
+- `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`
 - `GET /jobs/{id}` -> `{ job_id, status, progress_pct, error_code, selected_tier, last_transition_at, billing }`
 - `GET /jobs/{id}/events` -> `{ job_id, events[] }`
+- `GET /jobs/metrics` -> `{ jobs_*_total, queue_depth, queue_busy }`
 - `GET /jobs/{id}/output` -> `application/pdf`
 
 ## Simplicity Constraints

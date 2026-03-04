@@ -100,6 +100,12 @@ async function main() {
     assert(runJson.status === "PROCESSING", "run response should be PROCESSING");
     notes.push("PASS POST /jobs/:id/run contract (PROCESSING)");
 
+    const rerunRes = await fetch(`${baseUrl}/jobs/${created.job_id}/run`, { method: "POST" });
+    assert(rerunRes.status === 202, `rerun status expected 202 got ${rerunRes.status}`);
+    const rerunJson = await rerunRes.json();
+    assert(rerunJson.idempotent === true, "rerun should be idempotent");
+    notes.push("PASS POST /jobs/:id/run idempotent re-run contract");
+
     const getRes = await fetch(`${baseUrl}/jobs/${created.job_id}`);
     assert(getRes.status === 200, `get status expected 200 got ${getRes.status}`);
     const job = await getRes.json();
@@ -335,6 +341,14 @@ async function main() {
     const eventsMissingRes = await fetch(`${baseUrl}/jobs/nope/events`);
     assert(eventsMissingRes.status === 404, `events missing job expected 404 got ${eventsMissingRes.status}`);
     notes.push("PASS events job_not_found contract");
+
+    const metricsRes = await fetch(`${baseUrl}/jobs/metrics`);
+    assert(metricsRes.status === 200, `metrics status expected 200 got ${metricsRes.status}`);
+    const metrics = await metricsRes.json();
+    assert(typeof metrics.jobs_create_total === "number", "metrics jobs_create_total should be number");
+    assert(typeof metrics.jobs_run_total === "number", "metrics jobs_run_total should be number");
+    assert(typeof metrics.queue_depth === "number", "metrics queue_depth should be number");
+    notes.push("PASS /jobs/metrics minimal observability contract");
 
     console.log("PASS");
     console.log("AUDIT SUMMARY:");
