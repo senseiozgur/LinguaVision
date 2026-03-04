@@ -112,6 +112,7 @@ async function main() {
     assert(job.status === "READY" && Number.isFinite(job.progress_pct), "job state expected READY");
     assert(typeof job.selected_tier === "string", "selected_tier should be present");
     assert(typeof job.layout_metrics?.anchor_count === "number", "layout_metrics.anchor_count should be present");
+    assert(typeof job.translation_cache_hit === "boolean", "translation_cache_hit should be present");
     assert(typeof job.last_transition_at === "string", "last_transition_at should be present");
     notes.push("PASS GET /jobs/:id READY state transition");
 
@@ -129,6 +130,17 @@ async function main() {
     const ct = outputRes.headers.get("content-type") || "";
     assert(ct.includes("application/pdf"), "output content-type should be application/pdf");
     notes.push("PASS GET /jobs/:id/output contract");
+
+    // Same-document cache check: second job with same content should hit adapter cache
+    const cacheCreateRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 9999 });
+    assert(cacheCreateRes.status === 201, `cache create expected 201 got ${cacheCreateRes.status}`);
+    const cacheJob = await cacheCreateRes.json();
+    const cacheRunRes = await fetch(`${baseUrl}/jobs/${cacheJob.job_id}/run`, { method: "POST" });
+    assert(cacheRunRes.status === 202, `cache run expected 202 got ${cacheRunRes.status}`);
+    const cacheGet = await getJob(cacheJob.job_id);
+    assert(cacheGet.status === "READY", `cache job expected READY got ${cacheGet.status}`);
+    assert(cacheGet.translation_cache_hit === true, "second same-doc run should set translation_cache_hit=true");
+    notes.push("PASS deterministic translation cache hit on repeated same-document job");
 
     // Admission budget block
     const blockedRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 0 });

@@ -2,7 +2,7 @@
 
 MODE: SINGLE_AGENT
 OWNER: Cevher
-ACTIVE_TASK: LV-08 PDF layout quality metrics and cache keying hardening
+ACTIVE_TASK: LV-09 cache persistence strategy + eviction policy
 LAST_SYNC_BRANCH: main
 LAST_COMMIT: pending
 LAST_PUSH: pending
@@ -14,6 +14,6 @@ LAST_PUSH: pending
 4. Commit -> pull --rebase -> push.
 
 ## Last Update
-- TS: 1772610332
-- SUMMARY: LV-06.1 + LV-07 completed with PASS regression and canonical doc sync.
-- NEXT_STEP: implement layout quality counters aggregation and deterministic cache key scheme.
+- TS: 1772610740
+- SUMMARY: LV-06.1, LV-07, LV-08 completed with full PASS regression.
+- NEXT_STEP: add bounded cache eviction and optional persistent cache abstraction.

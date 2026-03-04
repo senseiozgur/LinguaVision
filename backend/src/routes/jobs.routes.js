@@ -89,7 +89,9 @@ export function createJobsRouter(deps) {
           simulateFailTiers,
           simulateFailCode,
           simulateRetryOnceTiers,
-          jobId: job.id
+          jobId: job.id,
+          sourceLang: job.source_lang || null,
+          targetLang: job.target_lang || null
         });
 
         if (translated.ok) break;
@@ -105,6 +107,7 @@ export function createJobsRouter(deps) {
         output_file_path: outPath,
         selected_tier: tier,
         layout_metrics: translated.layoutMetrics || null,
+        translation_cache_hit: Boolean(translated.cacheHit),
         billing: { charged_units: spentUnits + stepUnits, charged: true }
       });
 
@@ -264,6 +267,7 @@ export function createJobsRouter(deps) {
       error_code: job.error_code,
       selected_tier: job.selected_tier,
       layout_metrics: job.layout_metrics,
+      translation_cache_hit: Boolean(job.translation_cache_hit),
       last_transition_at: job.last_transition_at,
       billing: job.billing
     });

@@ -106,6 +106,7 @@ const hasJobsGetContract =
   jobsRoute.includes("error_code: job.error_code") &&
   jobsRoute.includes("selected_tier: job.selected_tier") &&
   jobsRoute.includes("layout_metrics: job.layout_metrics") &&
+  jobsRoute.includes("translation_cache_hit: Boolean(job.translation_cache_hit)") &&
   jobsRoute.includes("last_transition_at: job.last_transition_at") &&
   jobsRoute.includes("billing: job.billing");
 const hasJobsErrorCodes =
@@ -139,6 +140,10 @@ const hasLayoutPipelineWiring =
   providerAdapter.includes("layoutMetrics") &&
   pdfPipeline.includes("parsePdfLayout") &&
   pdfPipeline.includes("reflowTranslatedChunks");
+const hasTranslationCacheWiring =
+  providerAdapter.includes("translationCache") &&
+  providerAdapter.includes("makeCacheKey") &&
+  providerAdapter.includes("cacheHit");
 
 notes.push(`${hasAdmissionGuard ? "PASS" : "FAIL"} admission guard wiring`);
 notes.push(`${hasRuntimeGuard ? "PASS" : "FAIL"} runtime guard wiring`);
@@ -154,6 +159,7 @@ notes.push(`${hasQueueWorkerWiring ? "PASS" : "FAIL"} queue worker adapter wirin
 notes.push(`${hasErrorNormalizationWiring ? "PASS" : "FAIL"} provider error normalization wiring`);
 notes.push(`${hasRetryPolicySimulationWiring ? "PASS" : "FAIL"} retry policy simulation wiring`);
 notes.push(`${hasLayoutPipelineWiring ? "PASS" : "FAIL"} layout pipeline wiring`);
+notes.push(`${hasTranslationCacheWiring ? "PASS" : "FAIL"} translation cache wiring`);
 if (
   !hasAdmissionGuard ||
   !hasRuntimeGuard ||
@@ -168,7 +174,8 @@ if (
   !hasQueueWorkerWiring ||
   !hasErrorNormalizationWiring ||
   !hasRetryPolicySimulationWiring ||
-  !hasLayoutPipelineWiring
+  !hasLayoutPipelineWiring ||
+  !hasTranslationCacheWiring
 ) {
   pass = false;
 }

@@ -164,3 +164,8 @@
   - PASS LV-07 idempotent run contract (PROCESSING/READY safe rerun)
   - PASS /jobs/metrics minimal observability contract
   - PASS full regression after LV-07 integration
+- 2026-03-04T10:51:34+03:00 | npm run test:scaffold && npm run test:flow | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS LV-08 deterministic translation cache wiring
+  - PASS repeated same-document run returns translation_cache_hit=true
+  - PASS regression suite after cache integration

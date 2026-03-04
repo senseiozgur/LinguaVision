@@ -1,4 +1,5 @@
 import { runLayoutPipeline } from "../pdf/layout.pipeline.js";
+import { createHash } from "crypto";
 
 const KNOWN_PROVIDER_ERRORS = new Set([
   "PROVIDER_RATE_LIMIT",
@@ -13,6 +14,14 @@ function normalizeProviderError(code) {
 
 export function createProviderAdapter() {
   const transientFailureSeen = new Set();
+  const translationCache = new Map();
+
+  function makeCacheKey({ inputBuffer, tier, mode, sourceLang, targetLang }) {
+    const h = createHash("sha256");
+    h.update(inputBuffer);
+    h.update(`|${tier}|${mode}|${sourceLang || ""}|${targetLang || ""}`);
+    return h.digest("hex");
+  }
 
   return {
     async translateDocument({
@@ -23,10 +32,13 @@ export function createProviderAdapter() {
       simulateFailTiers = [],
       simulateFailCode = "PROVIDER_TIMEOUT",
       simulateRetryOnceTiers = [],
-      jobId = null
+      jobId = null,
+      sourceLang = null,
+      targetLang = null
     }) {
       const failSet = new Set(simulateFailTiers || []);
       const retryOnceSet = new Set(simulateRetryOnceTiers || []);
+      const hasSimulationControls = Boolean(simulateFailTier) || failSet.size > 0 || retryOnceSet.size > 0;
       const shouldFail = (simulateFailTier && simulateFailTier === tier) || failSet.has(tier);
       const transientKey = `${jobId || "global"}:${tier}`;
       const shouldFailOnce = retryOnceSet.has(tier) && !transientFailureSeen.has(transientKey);
@@ -39,13 +51,33 @@ export function createProviderAdapter() {
         return { ok: false, error: normalizeProviderError("PROVIDER_TIMEOUT"), tier };
       }
 
+      const cacheKey = makeCacheKey({ inputBuffer, tier, mode, sourceLang, targetLang });
+      if (!hasSimulationControls && translationCache.has(cacheKey)) {
+        const cached = translationCache.get(cacheKey);
+        return {
+          ok: true,
+          tier,
+          mode,
+          outputBuffer: cached.outputBuffer,
+          layoutMetrics: cached.layoutMetrics,
+          cacheHit: true
+        };
+      }
+
       const pipeline = runLayoutPipeline({ inputBuffer, mode });
+      if (!hasSimulationControls) {
+        translationCache.set(cacheKey, {
+          outputBuffer: pipeline.outputBuffer,
+          layoutMetrics: pipeline.layoutMetrics
+        });
+      }
       return {
         ok: true,
         tier,
         mode,
         outputBuffer: pipeline.outputBuffer,
-        layoutMetrics: pipeline.layoutMetrics
+        layoutMetrics: pipeline.layoutMetrics,
+        cacheHit: false
       };
     }
   };
