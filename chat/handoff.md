@@ -2,7 +2,7 @@
 
 MODE: SINGLE_AGENT
 OWNER: Cevher
-ACTIVE_TASK: LV-13 iOS-facing contract snapshot docs and compatibility guard tests
+ACTIVE_TASK: LV-14 provider performance baselines and timeout policy tuning
 LAST_SYNC_BRANCH: main
 LAST_COMMIT: pending
 LAST_PUSH: pending
@@ -14,6 +14,6 @@ LAST_PUSH: pending
 4. Commit -> pull --rebase -> push.
 
 ## Last Update
-- TS: 1772616080
-- SUMMARY: LV-12 outage matrix + ux_hint mapping hardening completed.
-- NEXT_STEP: freeze iOS contract snapshot and add compatibility assertion tests.
+- TS: 1772616676
+- SUMMARY: LV-13 iOS contract snapshot + compatibility guard completed.
+- NEXT_STEP: establish provider performance baseline metrics and timeout tuning knobs.

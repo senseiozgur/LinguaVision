@@ -189,3 +189,8 @@
   - PASS LV-12 provider outage matrix (timeout/rate-limit/upstream)
   - PASS iOS ux_hint mapping surfaced in job payload
   - PASS strict quality gate + outage matrix coexistence
+- 2026-03-04T12:30:22+03:00 | npm run test:scaffold && npm run test:flow && npm run test:audit-compact && npm run test:ios-contract | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS LV-13 iOS contract snapshot compatibility guard
+  - PASS full regression and telemetry/cache/quality-gate stack
+  - PASS contract fields remain backward-compatible for iOS polling

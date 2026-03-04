@@ -29,7 +29,8 @@
 - [x] LV-10 provider retry/fallback telemetry and audit compaction
 - [x] LV-11 strict/readable processing quality gates and cost-delta exposure
 - [x] LV-12 provider outage simulation matrix and iOS UX mapping hardening
-- [ ] LV-13 iOS-facing contract snapshot docs and compatibility guard tests
+- [x] LV-13 iOS-facing contract snapshot docs and compatibility guard tests
+- [ ] LV-14 provider performance baselines and timeout policy tuning
 
 ## Auto Loop (No Human Wait)
 1. Pick next top task.
@@ -57,3 +58,5 @@
   evidence: `backend/src/routes/jobs.routes.js`, `backend/src/jobs/job.store.js`, `scripts/jobs_flow.test.mjs`, `scripts/scaffold.test.mjs`
 - [x] LV-12 outage simulation matrix + ux_hint mapping hardening landed.
   evidence: `backend/src/routes/jobs.routes.js`, `scripts/jobs_flow.test.mjs`, `research/router_policy.md`
+- [x] LV-13 iOS contract snapshot + compatibility guard test landed.
+  evidence: `research/ios_contract_snapshot.json`, `scripts/ios_contract_compat.test.mjs`, `backend/package.json`

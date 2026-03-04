@@ -124,3 +124,9 @@ TASK: LV-12 outage matrix + iOS UX mapping hardening
 OUTPUT: provider outage matrix (PROVIDER_UPSTREAM_5XX dahil) test kapsamına eklendi; job payload'ina ux_hint eklendi
 PROOF: cmd=npm run test:scaffold; npm run test:flow; npm run test:audit-compact | result=PASS/PASS/PASS | files=backend/src/routes/jobs.routes.js,scripts/jobs_flow.test.mjs,research/router_policy.md,architecture/system_design.md
 NEXT: LV-13 iOS contract snapshot docs + compatibility guard
+
+[TS=2026-03-04T12:30:49+03:00] AGENT=Cevher
+TASK: LV-13 iOS contract snapshot + compatibility guard
+OUTPUT: iOS contract snapshot json freeze edildi; route payload uyumlulugunu dogrulayan guard test eklendi
+PROOF: cmd=npm run test:scaffold; npm run test:flow; npm run test:audit-compact; npm run test:ios-contract | result=PASS/PASS/PASS/PASS | files=research/ios_contract_snapshot.json,scripts/ios_contract_compat.test.mjs,backend/package.json
+NEXT: LV-14 provider performance baseline + timeout policy tuning

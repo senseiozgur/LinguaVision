@@ -111,6 +111,10 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - Provider outage simulation matrix extended in flow tests (timeout/rate-limit/upstream).
 - Job payload now includes `ux_hint` for iOS action guidance on failures.
 
+### LV-13 Status
+- iOS contract snapshot frozen in `research/ios_contract_snapshot.json`.
+- Compatibility guard test added (`scripts/ios_contract_compat.test.mjs`).
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`

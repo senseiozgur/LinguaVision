@@ -1,0 +1,72 @@
+{
+  "version": "2026-03-04",
+  "endpoints": {
+    "create_job": {
+      "method": "POST",
+      "path": "/jobs",
+      "success": ["job_id", "status"],
+      "errors": ["invalid_input", "INPUT_LIMIT_EXCEEDED", "COST_GUARD_BLOCK"]
+    },
+    "run_job": {
+      "method": "POST",
+      "path": "/jobs/{id}/run",
+      "success": ["accepted", "job_id", "status", "idempotent"],
+      "errors": ["job_not_found", "job_already_running", "LAYOUT_QUALITY_GATE_BLOCK"]
+    },
+    "get_job": {
+      "method": "GET",
+      "path": "/jobs/{id}",
+      "success": [
+        "job_id",
+        "status",
+        "progress_pct",
+        "error_code",
+        "selected_tier",
+        "layout_metrics",
+        "translation_cache_hit",
+        "quality_gate_passed",
+        "quality_gate_reason",
+        "cost_delta_units",
+        "ux_hint",
+        "last_transition_at",
+        "billing"
+      ],
+      "errors": ["job_not_found"]
+    },
+    "get_events": {
+      "method": "GET",
+      "path": "/jobs/{id}/events",
+      "success": ["job_id", "events"],
+      "errors": ["job_not_found"]
+    },
+    "get_output": {
+      "method": "GET",
+      "path": "/jobs/{id}/output",
+      "success": ["application/pdf"],
+      "errors": ["job_not_found", "job_not_ready"]
+    },
+    "get_metrics": {
+      "method": "GET",
+      "path": "/jobs/metrics",
+      "success": [
+        "jobs_create_total",
+        "jobs_run_total",
+        "jobs_get_total",
+        "jobs_events_total",
+        "jobs_output_total",
+        "jobs_ready_total",
+        "jobs_failed_total",
+        "provider_retry_total",
+        "provider_fallback_total",
+        "runtime_guard_block_total",
+        "cache_hits_total",
+        "cache_misses_total",
+        "cache_evictions_total",
+        "cache_entries",
+        "cache_max_entries",
+        "queue_depth",
+        "queue_busy"
+      ]
+    }
+  }
+}
