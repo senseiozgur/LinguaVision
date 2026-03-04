@@ -52,3 +52,9 @@ TASK: LV-01 Jobs route baseline hardening
 OUTPUT: target/source language format validation eklendi; invalid input rejection kapsamı genisletildi
 PROOF: cmd=npm run test:scaffold; npm run test:flow | result=PASS/PASS | new_checks=invalid target_lang, invalid source_lang | files=backend/src/routes/jobs.routes.js,scripts/jobs_flow.test.mjs,scripts/scaffold.test.mjs
 NEXT: git add -A -> commit feat: complete LV-01 -> pull --rebase origin main -> push origin main -> handoff Olgun
+
+[TS=2026-03-04T03:42:32+03:00] AGENT=Cevher
+TASK: BATON-HANDOFF LV-03
+OUTPUT: baton Olgun'a devredildi
+PROOF: file=chat/handoff.md | owner=Olgun | last_commit=ccbd017
+NEXT: Olgun ACK-TURN LV-03 yazip 10dk pencerede en az bir PROGRESS/PROOF guncellemesi girecek
