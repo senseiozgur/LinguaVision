@@ -156,3 +156,9 @@ TASK: LV-17 iOS migration notes + fixture guard
 OUTPUT: iOS migration notlari eklendi; dokuman uyumluluk guard testi (tokens) eklendi
 PROOF: cmd=npm run test:ios-migration; npm run test:ios-contract; npm run test:scaffold; npm run test:flow | result=PASS/PASS/PASS/PASS | files=research/ios_migration_notes.md,scripts/ios_migration_notes.test.mjs,backend/package.json
 NEXT: LV-18 strict/readable benchmark baseline
+
+[TS=2026-03-04T13:39:36+03:00] AGENT=Cevher
+TASK: LV-18 strict/readable benchmark baseline
+OUTPUT: benchmark script ve baseline raporu eklendi; strict/readable modlar icin units + avg/p95 latency bazal degerleri olusturuldu
+PROOF: cmd=npm run test:benchmark-mode; npm run test:ios-migration; npm run test:ios-contract; npm run test:scaffold; npm run test:flow; npm run test:audit-compact | result=PASS/PASS/PASS/PASS/PASS/PASS | files=scripts/benchmark_mode_baseline.mjs,research/benchmark_baseline.md,backend/package.json
+NEXT: LV-19 release hardening checklist + final risk register

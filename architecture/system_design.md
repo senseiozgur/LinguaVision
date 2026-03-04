@@ -136,6 +136,10 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - iOS migration notes published (`research/ios_migration_notes.md`).
 - Migration doc guard test added (`scripts/ios_migration_notes.test.mjs`).
 
+### LV-18 Status
+- Strict/readable benchmark baseline added (`scripts/benchmark_mode_baseline.mjs`).
+- Baseline report published in `research/benchmark_baseline.md`.
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`
