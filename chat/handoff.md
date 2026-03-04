@@ -1,13 +1,13 @@
-# Handoff (LinguaVision)
+﻿# Handoff (LinguaVision)
 
-BATON_OWNER: Cevher
-BATON_EXPIRES_AT_UNIX: 1772593970
+BATON_OWNER: Olgun
+BATON_EXPIRES_AT_UNIX: 1772584339
 CURRENT_TASK: LV-03 Polling and queue ordering consistency
-EXPECTED_OUTPUT: strengthen queue ordering behavior and add/update proof in scripts/jobs_flow.test.mjs + chat/chat.md
+EXPECTED_OUTPUT: strengthen polling/ordering checks and update TASK/OUTPUT/PROOF/NEXT evidence
 TOUCHING_FILES: backend/src/jobs/job.queue.js,scripts/jobs_flow.test.mjs,tasks/tasks.md,chat/chat.md
-LAST_COMMIT: pending (feat: complete LV-02)
+LAST_COMMIT: pending (sync+handoff)
 
 ## Last Update
-- TS: 1772593850
-- SUMMARY: LV-02 completed by Olgun (provider adapter error normalization); full flow test PASS; baton transferred to Cevher for LV-03.
-- NEXT_OWNER: Cevher
+- TS: 1772584039
+- SUMMARY: Cevher git sync akisini main branch uzerinde tamamladi (clean status + rebase up-to-date); baton Olgun'a devredildi.
+- NEXT_OWNER: Olgun
