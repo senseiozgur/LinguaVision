@@ -114,6 +114,7 @@ const hasJobsGetContract =
   jobsRoute.includes("quality_gate_passed: job.quality_gate_passed") &&
   jobsRoute.includes("quality_gate_reason: job.quality_gate_reason") &&
   jobsRoute.includes("cost_delta_units: job.cost_delta_units") &&
+  jobsRoute.includes("ux_hint: job.ux_hint") &&
   jobsRoute.includes("last_transition_at: job.last_transition_at") &&
   jobsRoute.includes("billing: job.billing");
 const hasJobsErrorCodes =
@@ -150,6 +151,10 @@ const hasStrictQualityGateWiring =
   jobsRoute.includes("effectiveChain = route.mode === \"strict\" ? [route.chain[0]] : route.chain") &&
   jobsRoute.includes("LAYOUT_QUALITY_GATE_BLOCK") &&
   jobsRoute.includes("simulate_layout_missing_anchor_count");
+const hasUxHintMappingWiring =
+  jobsRoute.includes("function mapErrorToUxHint(errorCode)") &&
+  jobsRoute.includes("retry_or_fallback") &&
+  jobsRoute.includes("ux_hint: mapErrorToUxHint(lastError)");
 const hasLayoutPipelineWiring =
   providerAdapter.includes("runLayoutPipeline") &&
   providerAdapter.includes("layoutMetrics") &&
@@ -178,6 +183,7 @@ notes.push(`${hasRetryPolicySimulationWiring ? "PASS" : "FAIL"} retry policy sim
 notes.push(`${hasLayoutPipelineWiring ? "PASS" : "FAIL"} layout pipeline wiring`);
 notes.push(`${hasTranslationCacheWiring ? "PASS" : "FAIL"} translation cache wiring`);
 notes.push(`${hasStrictQualityGateWiring ? "PASS" : "FAIL"} strict quality gate wiring`);
+notes.push(`${hasUxHintMappingWiring ? "PASS" : "FAIL"} ux hint mapping wiring`);
 if (
   !hasAdmissionGuard ||
   !hasRuntimeGuard ||
@@ -194,7 +200,8 @@ if (
   !hasRetryPolicySimulationWiring ||
   !hasLayoutPipelineWiring ||
   !hasTranslationCacheWiring ||
-  !hasStrictQualityGateWiring
+  !hasStrictQualityGateWiring ||
+  !hasUxHintMappingWiring
 ) {
   pass = false;
 }

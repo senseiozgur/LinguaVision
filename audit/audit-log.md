@@ -184,3 +184,8 @@
   - PASS LV-11 strict quality gate (LAYOUT_QUALITY_GATE_BLOCK)
   - PASS jobs payload includes quality_gate_* and cost_delta_units
   - PASS canonical router policy synced with strict quality gate
+- 2026-03-04T12:20:34+03:00 | npm run test:scaffold && npm run test:flow && npm run test:audit-compact | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS LV-12 provider outage matrix (timeout/rate-limit/upstream)
+  - PASS iOS ux_hint mapping surfaced in job payload
+  - PASS strict quality gate + outage matrix coexistence

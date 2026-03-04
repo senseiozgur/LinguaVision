@@ -118,3 +118,9 @@ TASK: LV-11 strict/readable quality gates + cost delta exposure
 OUTPUT: strict mod single-tier calisma + layout quality gate bloklama eklendi; jobs payload'ina quality_gate_* ve cost_delta_units alanlari eklendi; canonical router policy senkronlandi
 PROOF: cmd=npm run test:scaffold; npm run test:flow; npm run test:audit-compact | result=PASS/PASS/PASS | files=backend/src/routes/jobs.routes.js,backend/src/jobs/job.store.js,research/router_policy.md,architecture/system_design.md
 NEXT: LV-12 provider outage simulation matrix + iOS UX mapping hardening
+
+[TS=2026-03-04T12:20:56+03:00] AGENT=Cevher
+TASK: LV-12 outage matrix + iOS UX mapping hardening
+OUTPUT: provider outage matrix (PROVIDER_UPSTREAM_5XX dahil) test kapsamına eklendi; job payload'ina ux_hint eklendi
+PROOF: cmd=npm run test:scaffold; npm run test:flow; npm run test:audit-compact | result=PASS/PASS/PASS | files=backend/src/routes/jobs.routes.js,scripts/jobs_flow.test.mjs,research/router_policy.md,architecture/system_design.md
+NEXT: LV-13 iOS contract snapshot docs + compatibility guard

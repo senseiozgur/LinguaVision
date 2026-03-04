@@ -20,6 +20,7 @@
       quality_gate_passed: null,
       quality_gate_reason: null,
       cost_delta_units: 0,
+      ux_hint: null,
       input_file_path: input.input_file_path,
       output_file_path: null,
       source_lang: input.source_lang || null,

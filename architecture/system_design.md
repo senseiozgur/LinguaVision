@@ -107,10 +107,14 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - Strict mode enforces single-tier processing and layout quality gate (`LAYOUT_QUALITY_GATE_BLOCK`).
 - Job payload exposes `quality_gate_passed`, `quality_gate_reason`, and `cost_delta_units`.
 
+### LV-12 Status
+- Provider outage simulation matrix extended in flow tests (timeout/rate-limit/upstream).
+- Job payload now includes `ux_hint` for iOS action guidance on failures.
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`
-- `GET /jobs/{id}` -> `{ job_id, status, progress_pct, error_code, selected_tier, layout_metrics, translation_cache_hit, quality_gate_passed, quality_gate_reason, cost_delta_units, last_transition_at, billing }`
+- `GET /jobs/{id}` -> `{ job_id, status, progress_pct, error_code, selected_tier, layout_metrics, translation_cache_hit, quality_gate_passed, quality_gate_reason, cost_delta_units, ux_hint, last_transition_at, billing }`
 - `GET /jobs/{id}/events` -> `{ job_id, events[] }`
 - `GET /jobs/metrics` -> `{ jobs_*_total, jobs_ready_total, jobs_failed_total, provider_retry_total, provider_fallback_total, runtime_guard_block_total, cache_*_total, cache_entries, cache_max_entries, queue_depth, queue_busy }`
 - `GET /jobs/{id}/output` -> `application/pdf`

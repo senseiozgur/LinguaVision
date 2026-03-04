@@ -30,6 +30,15 @@ function isValidLangCode(value) {
   return /^[a-z]{2,3}(-[A-Z]{2})?$/.test((value || "").toString().trim());
 }
 
+function mapErrorToUxHint(errorCode) {
+  if (errorCode === "INPUT_LIMIT_EXCEEDED") return "plan_limit_upgrade";
+  if (errorCode === "COST_GUARD_BLOCK") return "cost_limit_reduce_scope";
+  if (errorCode === "COST_LIMIT_STOP") return "cost_limit_partial_result";
+  if (errorCode === "LAYOUT_QUALITY_GATE_BLOCK") return "switch_mode_or_fix_pdf";
+  if (errorCode && errorCode.startsWith("PROVIDER_")) return "retry_or_fallback";
+  return "review_job_error";
+}
+
 export function createJobsRouter(deps) {
   const router = express.Router();
   const stats = deps.stats || {
@@ -139,6 +148,7 @@ export function createJobsRouter(deps) {
         quality_gate_passed: route.mode === "strict" ? true : null,
         quality_gate_reason: null,
         cost_delta_units: Math.max(0, stepUnits - baseEconomyUnits),
+        ux_hint: null,
         billing: { charged_units: spentUnits + stepUnits, charged: true }
       });
       bump("jobs_ready_total");
@@ -151,7 +161,8 @@ export function createJobsRouter(deps) {
       progress_pct: 100,
       error_code: lastError,
       quality_gate_passed: lastError === "LAYOUT_QUALITY_GATE_BLOCK" ? false : null,
-      quality_gate_reason: lastError === "LAYOUT_QUALITY_GATE_BLOCK" ? "strict_layout_guard" : null
+      quality_gate_reason: lastError === "LAYOUT_QUALITY_GATE_BLOCK" ? "strict_layout_guard" : null,
+      ux_hint: mapErrorToUxHint(lastError)
     });
     bump("jobs_failed_total");
 
@@ -325,6 +336,7 @@ export function createJobsRouter(deps) {
       quality_gate_passed: job.quality_gate_passed,
       quality_gate_reason: job.quality_gate_reason,
       cost_delta_units: job.cost_delta_units,
+      ux_hint: job.ux_hint,
       last_transition_at: job.last_transition_at,
       billing: job.billing
     });

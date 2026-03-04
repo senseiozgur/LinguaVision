@@ -210,6 +210,7 @@ async function main() {
       failGet.error_code === "PROVIDER_TIMEOUT",
       `failed error_code expected PROVIDER_TIMEOUT got ${failGet.error_code}`
     );
+    assert(failGet.ux_hint === "retry_or_fallback", `failed ux_hint expected retry_or_fallback got ${failGet.ux_hint}`);
     notes.push("PASS provider all-tier-fail -> FAILED + normalized error");
 
     const failEventsRes = await fetch(`${baseUrl}/jobs/${failJob.job_id}/events`);
@@ -301,6 +302,28 @@ async function main() {
     );
     notes.push("PASS unknown provider error normalized to PROVIDER_UPSTREAM_5XX");
 
+    // Provider outage matrix: upstream 5xx must propagate and map to retry/fallback UX hint
+    const upstreamErrCreateRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
+    assert(upstreamErrCreateRes.status === 201, `upstream error create expected 201 got ${upstreamErrCreateRes.status}`);
+    const upstreamErrJob = await upstreamErrCreateRes.json();
+    const upstreamErrRunRes = await fetch(
+      `${baseUrl}/jobs/${upstreamErrJob.job_id}/run?simulate_fail_tiers=standard,premium,economy&simulate_fail_code=PROVIDER_UPSTREAM_5XX`,
+      { method: "POST" }
+    );
+    assert(upstreamErrRunRes.status === 409, `upstream error run expected 409 got ${upstreamErrRunRes.status}`);
+    const upstreamErrRun = await upstreamErrRunRes.json();
+    assert(
+      upstreamErrRun.error === "PROVIDER_UPSTREAM_5XX",
+      `upstream error expected PROVIDER_UPSTREAM_5XX got ${upstreamErrRun.error}`
+    );
+    const upstreamErrGet = await getJob(upstreamErrJob.job_id);
+    assert(upstreamErrGet.status === "FAILED", `upstream job expected FAILED got ${upstreamErrGet.status}`);
+    assert(
+      upstreamErrGet.ux_hint === "retry_or_fallback",
+      `upstream ux_hint expected retry_or_fallback got ${upstreamErrGet.ux_hint}`
+    );
+    notes.push("PASS provider upstream outage matrix mapping");
+
     // Retry policy simulation: same tier one retry should recover without fallback
     const retryCreateRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
     assert(retryCreateRes.status === 201, `retry create expected 201 got ${retryCreateRes.status}`);
@@ -373,6 +396,12 @@ async function main() {
     assert(
       strictRun.error === "LAYOUT_QUALITY_GATE_BLOCK",
       `strict quality gate expected LAYOUT_QUALITY_GATE_BLOCK got ${strictRun.error}`
+    );
+    const strictGet = await getJob(strictJob.job_id);
+    assert(strictGet.status === "FAILED", `strict job expected FAILED got ${strictGet.status}`);
+    assert(
+      strictGet.ux_hint === "switch_mode_or_fix_pdf",
+      `strict ux_hint expected switch_mode_or_fix_pdf got ${strictGet.ux_hint}`
     );
     notes.push("PASS strict quality gate blocks missing-anchor output");
 

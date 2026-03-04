@@ -2,7 +2,7 @@
 
 MODE: SINGLE_AGENT
 OWNER: Cevher
-ACTIVE_TASK: LV-12 provider outage simulation matrix and iOS UX mapping hardening
+ACTIVE_TASK: LV-13 iOS-facing contract snapshot docs and compatibility guard tests
 LAST_SYNC_BRANCH: main
 LAST_COMMIT: pending
 LAST_PUSH: pending
@@ -14,6 +14,6 @@ LAST_PUSH: pending
 4. Commit -> pull --rebase -> push.
 
 ## Last Update
-- TS: 1772615642
-- SUMMARY: LV-11 strict quality gate + cost delta exposure completed; canonical policy synced.
-- NEXT_STEP: add outage simulation coverage matrix and explicit UX error mapping checks.
+- TS: 1772616080
+- SUMMARY: LV-12 outage matrix + ux_hint mapping hardening completed.
+- NEXT_STEP: freeze iOS contract snapshot and add compatibility assertion tests.

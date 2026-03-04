@@ -72,6 +72,7 @@
 - `COST_GUARD_BLOCK` -> tahmini maliyet asimi bilgisi
 - `COST_LIMIT_STOP` -> islem durdu, kismi sonuc varsa indirilebilir
 - `PROVIDER_*` -> otomatik yeniden deneme/fallback bilgisi
+- `LAYOUT_QUALITY_GATE_BLOCK` -> strict mod kalite kapisi; readable moda gecis onerisi
 
 ## Why This Policy
 - Basitlik: tek giris denetimi + deterministik fallback zinciri.
