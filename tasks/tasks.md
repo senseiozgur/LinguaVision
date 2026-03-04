@@ -37,7 +37,7 @@
 - [x] LV-18 strict/readable performance benchmark baselines
 - [x] LV-19 release hardening checklist and final risk register
 - [x] LV-20 production readiness summary and handover pack
-- [ ] LV-21 post-release monitoring cadence + incident template
+- [x] LV-21 post-release monitoring cadence + incident template
 
 ## Auto Loop (No Human Wait)
 1. Pick next top task.
@@ -81,5 +81,5 @@
   evidence: `research/release_hardening.md`, `research/risk_register.md`, `scripts/release_hardening.test.mjs`
 - [x] LV-20 production readiness summary + handover pack landed.
   evidence: `research/production_readiness.md`, `research/handover_pack.md`, `scripts/production_handover.test.mjs`
-- [x] LV-18 strict/readable benchmark baseline landed.
-  evidence: `scripts/benchmark_mode_baseline.mjs`, `research/benchmark_baseline.md`, `backend/package.json`
+- [x] LV-21 post-release monitoring cadence + incident template landed.
+  evidence: `research/monitoring_cadence.md`, `research/incident_template.md`, `scripts/post_release_ops.test.mjs`

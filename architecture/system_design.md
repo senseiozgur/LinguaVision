@@ -150,6 +150,11 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - Handover pack published (`research/handover_pack.md`).
 - Production/handover guard test added (`scripts/production_handover.test.mjs`).
 
+### LV-21 Status
+- Post-release monitoring cadence published (`research/monitoring_cadence.md`).
+- Incident response template published (`research/incident_template.md`).
+- Post-release ops guard test added (`scripts/post_release_ops.test.mjs`).
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`
