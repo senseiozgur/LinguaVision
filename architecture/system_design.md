@@ -99,12 +99,16 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - Optional persistence file is supported (`TRANSLATION_CACHE_PERSIST`, `translation-cache.json`).
 - `/jobs/metrics` now surfaces cache hit/miss/eviction counters.
 
+### LV-10 Status
+- Provider retry/fallback/runtime-guard counters are tracked in route telemetry.
+- Audit compaction helper script available (`scripts/audit_compact.mjs`).
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`
 - `GET /jobs/{id}` -> `{ job_id, status, progress_pct, error_code, selected_tier, layout_metrics, translation_cache_hit, last_transition_at, billing }`
 - `GET /jobs/{id}/events` -> `{ job_id, events[] }`
-- `GET /jobs/metrics` -> `{ jobs_*_total, cache_*_total, cache_entries, cache_max_entries, queue_depth, queue_busy }`
+- `GET /jobs/metrics` -> `{ jobs_*_total, jobs_ready_total, jobs_failed_total, provider_retry_total, provider_fallback_total, runtime_guard_block_total, cache_*_total, cache_entries, cache_max_entries, queue_depth, queue_busy }`
 - `GET /jobs/{id}/output` -> `application/pdf`
 
 ## Simplicity Constraints
@@ -120,6 +124,7 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - Routing policy implementation side: `backend/src/providers/provider.router.js`
 - Cost guard: `backend/src/routing/cost.guard.js`
 - Flow/scaffold tests: `scripts/jobs_flow.test.mjs`, `scripts/scaffold.test.mjs`
+- Audit compaction test utility: `scripts/audit_compact.mjs`
 - Reference baseline (read-only):
   - `D:/dev/proje/Deepl/backend/src/routes/jobs.routes.ts`
   - `D:/dev/proje/Deepl/backend/src/jobs/job.runner.ts`

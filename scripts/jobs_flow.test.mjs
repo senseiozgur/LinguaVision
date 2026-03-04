@@ -363,6 +363,12 @@ async function main() {
     assert(typeof metrics.cache_hits_total === "number", "metrics cache_hits_total should be number");
     assert(typeof metrics.cache_evictions_total === "number", "metrics cache_evictions_total should be number");
     assert(typeof metrics.cache_entries === "number", "metrics cache_entries should be number");
+    assert(typeof metrics.provider_retry_total === "number", "metrics provider_retry_total should be number");
+    assert(typeof metrics.provider_fallback_total === "number", "metrics provider_fallback_total should be number");
+    assert(typeof metrics.jobs_ready_total === "number", "metrics jobs_ready_total should be number");
+    assert(typeof metrics.jobs_failed_total === "number", "metrics jobs_failed_total should be number");
+    assert(metrics.provider_retry_total >= 1, "metrics provider_retry_total should be >=1");
+    assert(metrics.provider_fallback_total >= 1, "metrics provider_fallback_total should be >=1");
     notes.push("PASS /jobs/metrics minimal observability contract");
 
     console.log("PASS");

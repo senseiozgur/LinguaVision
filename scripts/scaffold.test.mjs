@@ -95,7 +95,8 @@ const hasRuntimeGuard =
   jobsRoute.includes("runtimeGuard.error");
 const hasFallbackChain =
   jobsRoute.includes("planRoute") &&
-  jobsRoute.includes("for (const tier of route.chain)");
+  (jobsRoute.includes("for (const tier of route.chain)") ||
+    jobsRoute.includes("for (let chainIndex = 0; chainIndex < route.chain.length; chainIndex++)"));
 const hasJobsCreateContract =
   jobsRoute.includes("res.status(201).json({ job_id: temp.id, status: \"PENDING\" })");
 const hasJobsRunContract =
@@ -121,6 +122,9 @@ const hasEventsEndpoint =
 const hasMetricsEndpoint =
   jobsRoute.includes("router.get(\"/metrics\"") &&
   jobsRoute.includes("jobs_create_total") &&
+  jobsRoute.includes("provider_retry_total") &&
+  jobsRoute.includes("provider_fallback_total") &&
+  jobsRoute.includes("runtime_guard_block_total") &&
   jobsRoute.includes("queue_depth") &&
   jobsRoute.includes("getCacheMetrics");
 const hasAsyncToggleWiring =

@@ -174,3 +174,8 @@
   - PASS LV-09 translation cache LRU eviction/persistence wiring
   - PASS /jobs/metrics exposes cache hit/miss/eviction counters
   - PASS full regression with persistence disabled in tests
+- 2026-03-04T12:03:19+03:00 | npm run test:scaffold && npm run test:flow && npm run test:audit-compact | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS LV-10 telemetry counters wired in /jobs/metrics
+  - PASS audit compact summary script outputs stable pass/fail counts
+  - PASS end-to-end regressions after telemetry additions

@@ -37,7 +37,12 @@ export function createJobsRouter(deps) {
     jobs_run_total: 0,
     jobs_get_total: 0,
     jobs_events_total: 0,
-    jobs_output_total: 0
+    jobs_output_total: 0,
+    jobs_ready_total: 0,
+    jobs_failed_total: 0,
+    provider_retry_total: 0,
+    provider_fallback_total: 0,
+    runtime_guard_block_total: 0
   };
   deps.stats = stats;
 
@@ -66,7 +71,8 @@ export function createJobsRouter(deps) {
     const spentUnits = job.billing?.charged_units || 0;
     let lastError = "ROUTER_NO_FALLBACK_PATH";
 
-    for (const tier of route.chain) {
+    for (let chainIndex = 0; chainIndex < route.chain.length; chainIndex++) {
+      const tier = route.chain[chainIndex];
       const stepUnits = Math.ceil(baseStepUnits * getTierMultiplier(tier));
       const runtimeGuard = validateRuntimeStep({
         packageName: route.packageName,
@@ -75,12 +81,14 @@ export function createJobsRouter(deps) {
       });
 
       if (!runtimeGuard.ok) {
+        bump("runtime_guard_block_total");
         lastError = runtimeGuard.error;
         continue;
       }
 
       let translated = null;
       for (let attempt = 1; attempt <= 2; attempt++) {
+        if (attempt > 1) bump("provider_retry_total");
         translated = await deps.providerAdapter.translateDocument({
           inputBuffer: inBytes,
           tier,
@@ -98,7 +106,12 @@ export function createJobsRouter(deps) {
         lastError = translated.error || "PROVIDER_UPSTREAM_5XX";
       }
 
-      if (!translated || !translated.ok) continue;
+      if (!translated || !translated.ok) {
+        if (chainIndex < route.chain.length - 1) {
+          bump("provider_fallback_total");
+        }
+        continue;
+      }
 
       const outPath = await deps.storage.saveOutput(job.id, translated.outputBuffer);
       deps.jobs.update(job.id, {
@@ -110,6 +123,7 @@ export function createJobsRouter(deps) {
         translation_cache_hit: Boolean(translated.cacheHit),
         billing: { charged_units: spentUnits + stepUnits, charged: true }
       });
+      bump("jobs_ready_total");
 
       return { ok: true };
     }
@@ -119,6 +133,7 @@ export function createJobsRouter(deps) {
       progress_pct: 100,
       error_code: lastError
     });
+    bump("jobs_failed_total");
 
     return { ok: false, error: lastError };
   }

@@ -26,7 +26,8 @@
 - [x] LV-07 iOS contract hardening + idempotency/observability minimal set
 - [x] LV-08 PDF layout quality metrics and cache keying hardening
 - [x] LV-09 cache persistence strategy + eviction policy
-- [ ] LV-10 provider retry/fallback telemetry and audit compaction
+- [x] LV-10 provider retry/fallback telemetry and audit compaction
+- [ ] LV-11 strict/readable processing quality gates and cost-delta exposure
 
 ## Auto Loop (No Human Wait)
 1. Pick next top task.
@@ -48,3 +49,5 @@
   evidence: `backend/src/providers/provider.adapter.js`, `backend/src/routes/jobs.routes.js`, `scripts/jobs_flow.test.mjs`
 - [x] LV-09 bounded LRU eviction + optional persisted translation cache landed.
   evidence: `backend/src/providers/translation.cache.js`, `backend/src/providers/provider.adapter.js`, `backend/src/server.js`, `backend/src/routes/jobs.routes.js`
+- [x] LV-10 telemetry counters and audit compaction script landed.
+  evidence: `backend/src/routes/jobs.routes.js`, `scripts/jobs_flow.test.mjs`, `scripts/audit_compact.mjs`, `backend/package.json`

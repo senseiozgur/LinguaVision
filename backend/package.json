@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "test:scaffold": "node ../scripts/scaffold.test.mjs",
-    "test:flow": "node ../scripts/jobs_flow.test.mjs"
+    "test:flow": "node ../scripts/jobs_flow.test.mjs",
+    "test:audit-compact": "node ../scripts/audit_compact.mjs"
   },
   "dependencies": {
     "express": "^4.19.2",

@@ -106,3 +106,9 @@ TASK: LV-09 cache persistence + eviction policy
 OUTPUT: bounded LRU translation cache ve opsiyonel disk persist (translation-cache.json) eklendi; metrics endpoint cache telemetrisini expose ediyor
 PROOF: cmd=npm run test:scaffold; npm run test:flow | result=PASS/PASS | files=backend/src/providers/translation.cache.js,backend/src/providers/provider.adapter.js,backend/src/server.js,backend/src/routes/jobs.routes.js
 NEXT: LV-10 retry/fallback telemetry detaylandirma + audit compaction strategy
+
+[TS=2026-03-04T12:03:42+03:00] AGENT=Cevher
+TASK: LV-10 telemetry + audit compaction
+OUTPUT: retry/fallback/runtime guard sayaçları /jobs/metrics'e eklendi; scripts/audit_compact.mjs ile audit özeti otomatikleştirildi
+PROOF: cmd=npm run test:scaffold; npm run test:flow; npm run test:audit-compact | result=PASS/PASS/PASS | files=backend/src/routes/jobs.routes.js,scripts/jobs_flow.test.mjs,scripts/audit_compact.mjs,backend/package.json
+NEXT: LV-11 strict/readable quality gate + cost delta visibility
