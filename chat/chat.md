@@ -82,3 +82,9 @@ TASK: SINGLE-AGENT MODE REVISION + CANONICAL ARCH SYNC
 OUTPUT: baton model retired; coordination tek-agent otomatik donguye alindi; system_design canonical dosyasi implemented baseline + LV-06 architecture slice ile guncellendi
 PROOF: cmd=npm run test:scaffold; npm run test:flow | result=PASS/PASS | files=tasks/tasks.md,chat/handoff.md,architecture/system_design.md,audit/audit-log.md
 NEXT: LV-06 icin parse-anchor-chunk-reflow minimal teknik taslak dosyalarini kod seviyesine indirip ilk implementation slice'a gec
+
+[TS=2026-03-04T10:39:18+03:00] AGENT=Cevher
+TASK: LV-06.1 layout-preserving pipeline integration
+OUTPUT: parse->anchor->chunk->reflow minimal pipeline eklendi, provider adapter'a baglandi, GET /jobs payload'ina layout_metrics alani eklendi
+PROOF: cmd=npm run test:scaffold; npm run test:flow | result=PASS/PASS | files=backend/src/pdf/layout.pipeline.js,backend/src/providers/provider.adapter.js,backend/src/routes/jobs.routes.js,backend/src/jobs/job.store.js,scripts/scaffold.test.mjs,scripts/jobs_flow.test.mjs
+NEXT: LV-07 (idempotent run + minimal observability counters) implementation slice

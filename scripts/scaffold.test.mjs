@@ -18,6 +18,7 @@ const required = [
   "backend/src/routes/jobs.routes.js",
   "backend/src/jobs/job.store.js",
   "backend/src/jobs/job.queue.js",
+  "backend/src/pdf/layout.pipeline.js",
   "backend/src/storage/local.storage.js",
   "backend/src/routing/cost.guard.js",
   "backend/src/providers/provider.router.js",
@@ -82,6 +83,7 @@ try {
 
 const jobsRoute = fs.readFileSync(path.join(root, "backend/src/routes/jobs.routes.js"), "utf8");
 const providerAdapter = fs.readFileSync(path.join(root, "backend/src/providers/provider.adapter.js"), "utf8");
+const pdfPipeline = fs.readFileSync(path.join(root, "backend/src/pdf/layout.pipeline.js"), "utf8");
 const hasAdmissionGuard =
   jobsRoute.includes("validateAdmission") &&
   jobsRoute.includes("COST_GUARD_BLOCK") &&
@@ -102,6 +104,7 @@ const hasJobsGetContract =
   jobsRoute.includes("progress_pct: job.progress_pct") &&
   jobsRoute.includes("error_code: job.error_code") &&
   jobsRoute.includes("selected_tier: job.selected_tier") &&
+  jobsRoute.includes("layout_metrics: job.layout_metrics") &&
   jobsRoute.includes("last_transition_at: job.last_transition_at") &&
   jobsRoute.includes("billing: job.billing");
 const hasJobsErrorCodes =
@@ -126,6 +129,11 @@ const hasErrorNormalizationWiring =
 const hasRetryPolicySimulationWiring =
   jobsRoute.includes("simulate_retry_once_tiers") &&
   jobsRoute.includes("for (let attempt = 1; attempt <= 2; attempt++)");
+const hasLayoutPipelineWiring =
+  providerAdapter.includes("runLayoutPipeline") &&
+  providerAdapter.includes("layoutMetrics") &&
+  pdfPipeline.includes("parsePdfLayout") &&
+  pdfPipeline.includes("reflowTranslatedChunks");
 
 notes.push(`${hasAdmissionGuard ? "PASS" : "FAIL"} admission guard wiring`);
 notes.push(`${hasRuntimeGuard ? "PASS" : "FAIL"} runtime guard wiring`);
@@ -139,6 +147,7 @@ notes.push(`${hasAsyncToggleWiring ? "PASS" : "FAIL"} async queue simulation wir
 notes.push(`${hasQueueWorkerWiring ? "PASS" : "FAIL"} queue worker adapter wiring`);
 notes.push(`${hasErrorNormalizationWiring ? "PASS" : "FAIL"} provider error normalization wiring`);
 notes.push(`${hasRetryPolicySimulationWiring ? "PASS" : "FAIL"} retry policy simulation wiring`);
+notes.push(`${hasLayoutPipelineWiring ? "PASS" : "FAIL"} layout pipeline wiring`);
 if (
   !hasAdmissionGuard ||
   !hasRuntimeGuard ||
@@ -151,7 +160,8 @@ if (
   !hasAsyncToggleWiring ||
   !hasQueueWorkerWiring ||
   !hasErrorNormalizationWiring ||
-  !hasRetryPolicySimulationWiring
+  !hasRetryPolicySimulationWiring ||
+  !hasLayoutPipelineWiring
 ) {
   pass = false;
 }

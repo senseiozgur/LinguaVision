@@ -1,3 +1,5 @@
+import { runLayoutPipeline } from "../pdf/layout.pipeline.js";
+
 const KNOWN_PROVIDER_ERRORS = new Set([
   "PROVIDER_RATE_LIMIT",
   "PROVIDER_TIMEOUT",
@@ -37,11 +39,13 @@ export function createProviderAdapter() {
         return { ok: false, error: normalizeProviderError("PROVIDER_TIMEOUT"), tier };
       }
 
+      const pipeline = runLayoutPipeline({ inputBuffer, mode });
       return {
         ok: true,
         tier,
         mode,
-        outputBuffer: inputBuffer
+        outputBuffer: pipeline.outputBuffer,
+        layoutMetrics: pipeline.layoutMetrics
       };
     }
   };

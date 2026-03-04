@@ -154,3 +154,8 @@
   - PASS single-agent process/doc refactor did not break scaffold
   - PASS flow regressions (queue ordering + retry simulation + validation)
   - PASS canonical architecture sync with implemented baseline
+- 2026-03-04T10:38:54+03:00 | npm run test:scaffold && npm run test:flow | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS LV-06.1 layout pipeline wiring (parse/anchor/chunk/reflow)
+  - PASS jobs polling payload includes layout_metrics
+  - PASS full regression suite after architecture slice integration

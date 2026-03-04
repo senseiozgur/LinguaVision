@@ -22,7 +22,7 @@
   proof: `audit/audit-log.md`, `architecture/system_design.md`, `chat/chat.md`, `chat/handoff.md`
 
 ## Current Focus
-- [ ] LV-06 PDF layout-preserving translation architecture (implementation-ready slice)
+- [x] LV-06 PDF layout-preserving translation architecture (implementation-ready slice)
 - [ ] LV-07 iOS contract hardening + idempotency/observability minimal set
 
 ## Auto Loop (No Human Wait)
@@ -33,3 +33,9 @@
 5. Commit changed files.
 6. `git pull --rebase origin main`.
 7. `git push origin main`.
+
+## Latest Progress
+- [x] LV-06.1 layout pipeline (parse->anchor->chunk->reflow) minimal implementation landed.
+  evidence: `backend/src/pdf/layout.pipeline.js`, `backend/src/providers/provider.adapter.js`, `backend/src/routes/jobs.routes.js`
+- [x] Jobs response now exposes `layout_metrics` for polling/debug visibility.
+  evidence: `backend/src/routes/jobs.routes.js`, `backend/src/jobs/job.store.js`

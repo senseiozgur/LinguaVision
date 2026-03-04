@@ -105,6 +105,7 @@ async function main() {
     const job = await getRes.json();
     assert(job.status === "READY" && Number.isFinite(job.progress_pct), "job state expected READY");
     assert(typeof job.selected_tier === "string", "selected_tier should be present");
+    assert(typeof job.layout_metrics?.anchor_count === "number", "layout_metrics.anchor_count should be present");
     assert(typeof job.last_transition_at === "string", "last_transition_at should be present");
     notes.push("PASS GET /jobs/:id READY state transition");
 

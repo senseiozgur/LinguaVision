@@ -2,7 +2,7 @@
 
 MODE: SINGLE_AGENT
 OWNER: Cevher
-ACTIVE_TASK: LV-06 PDF layout-preserving translation architecture
+ACTIVE_TASK: LV-07 iOS contract hardening + idempotency/observability
 LAST_SYNC_BRANCH: main
 LAST_COMMIT: pending
 LAST_PUSH: pending
@@ -14,6 +14,6 @@ LAST_PUSH: pending
 4. Commit -> pull --rebase -> push.
 
 ## Last Update
-- TS: 1772586713
-- SUMMARY: multi-agent baton flow retired; handoff file converted to single-agent checkpoint ledger.
-- NEXT_STEP: canonical architecture docu update + proof run + sync commit.
+- TS: 1772609980
+- SUMMARY: LV-06.1 pipeline integrated and regression tests passed.
+- NEXT_STEP: implement idempotent run guard and lightweight metrics exposure.

@@ -16,6 +16,8 @@ PDF cevirisinde format bozulmasini minimumda tutan, maliyet kontrollu, fallback-
   evidence: `backend/src/routing/cost.guard.js`, `backend/src/routes/jobs.routes.js`
 - Provider fallback + normalization + retry simulation
   evidence: `backend/src/providers/provider.router.js`, `backend/src/providers/provider.adapter.js`, `backend/src/routes/jobs.routes.js`
+- Layout-preserving pipeline v1 (parse->anchor->chunk->reflow, passthrough writer)
+  evidence: `backend/src/pdf/layout.pipeline.js`, `backend/src/providers/provider.adapter.js`, `backend/src/routes/jobs.routes.js`
 - End-to-end proof tests
   evidence: `scripts/scaffold.test.mjs`, `scripts/jobs_flow.test.mjs`
 
@@ -73,6 +75,10 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - Anchor coverage >= %99 (missing anchor yok ya da loglanmis).
 - Overflow/clip count audit log'da raporlanacak.
 - iOS contract degismeyecek (`create/run/poll/output` ayni kalacak).
+
+### LV-06.1 Status
+- Minimal pipeline implemented and wired into provider adapter.
+- `GET /jobs/{id}` now includes `layout_metrics` for iOS/debug observability.
 
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`

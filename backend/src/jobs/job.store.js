@@ -15,6 +15,7 @@
       last_transition_at: now,
       error_code: null,
       selected_tier: null,
+      layout_metrics: null,
       input_file_path: input.input_file_path,
       output_file_path: null,
       source_lang: input.source_lang || null,

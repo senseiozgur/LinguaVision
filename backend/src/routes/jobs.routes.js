@@ -92,6 +92,7 @@ export function createJobsRouter(deps) {
         progress_pct: 100,
         output_file_path: outPath,
         selected_tier: tier,
+        layout_metrics: translated.layoutMetrics || null,
         billing: { charged_units: spentUnits + stepUnits, charged: true }
       });
 
@@ -228,6 +229,7 @@ export function createJobsRouter(deps) {
       progress_pct: job.progress_pct,
       error_code: job.error_code,
       selected_tier: job.selected_tier,
+      layout_metrics: job.layout_metrics,
       last_transition_at: job.last_transition_at,
       billing: job.billing
     });
