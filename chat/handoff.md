@@ -2,7 +2,7 @@
 
 MODE: SINGLE_AGENT
 OWNER: Cevher
-ACTIVE_TASK: LV-20 production readiness summary and handover pack
+ACTIVE_TASK: LV-21 post-release monitoring cadence and incident template
 LAST_SYNC_BRANCH: main
 LAST_COMMIT: pending
 LAST_PUSH: pending
@@ -14,6 +14,6 @@ LAST_PUSH: pending
 4. Commit -> pull --rebase -> push.
 
 ## Last Update
-- TS: 1772621272
-- SUMMARY: LV-19 release hardening checklist + risk register completed.
-- NEXT_STEP: generate production readiness summary and handover package.
+- TS: 1772622424
+- SUMMARY: LV-20 production readiness summary + handover pack completed.
+- NEXT_STEP: add monitoring cadence and incident response template.

@@ -145,6 +145,11 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
 - Final risk register published (`research/risk_register.md`).
 - Release hardening guard test added (`scripts/release_hardening.test.mjs`).
 
+### LV-20 Status
+- Production readiness summary published (`research/production_readiness.md`).
+- Handover pack published (`research/handover_pack.md`).
+- Production/handover guard test added (`scripts/production_handover.test.mjs`).
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`

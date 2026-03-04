@@ -11,7 +11,8 @@
     "test:ios-contract": "node ../scripts/ios_contract_compat.test.mjs",
     "test:ios-migration": "node ../scripts/ios_migration_notes.test.mjs",
     "test:benchmark-mode": "node ../scripts/benchmark_mode_baseline.mjs",
-    "test:release-hardening": "node ../scripts/release_hardening.test.mjs"
+    "test:release-hardening": "node ../scripts/release_hardening.test.mjs",
+    "test:production-handover": "node ../scripts/production_handover.test.mjs"
   },
   "dependencies": {
     "express": "^4.19.2",
