@@ -209,3 +209,8 @@
   - PASS LV-16 package enforcement regression matrix
   - PASS free+strict deny and free/pro size-boundary behavior
   - PASS full contract/cost regression suite
+- 2026-03-04T13:22:02+03:00 | npm run test:ios-migration && npm run test:ios-contract && npm run test:scaffold && npm run test:flow | DRY_RUN=1 | PASS
+  AUDIT SUMMARY:
+  - PASS LV-17 iOS migration notes fixture coverage
+  - PASS migration notes guard tokens for idempotent + ux_hint + strict gate
+  - PASS full regression remains green

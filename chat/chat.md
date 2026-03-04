@@ -150,3 +150,9 @@ TASK: LV-16 cost-package enforcement regression matrix
 OUTPUT: package policy matrix test kapsamı eklendi (free+strict deny, free size limit deny, pro same-size allow)
 PROOF: cmd=npm run test:scaffold; npm run test:flow; npm run test:audit-compact; npm run test:ios-contract | result=PASS/PASS/PASS/PASS | files=backend/src/routes/jobs.routes.js,scripts/jobs_flow.test.mjs,scripts/scaffold.test.mjs,research/cost_strategy.md
 NEXT: LV-17 iOS integration fixture + migration notes
+
+[TS=2026-03-04T13:22:26+03:00] AGENT=Cevher
+TASK: LV-17 iOS migration notes + fixture guard
+OUTPUT: iOS migration notlari eklendi; dokuman uyumluluk guard testi (tokens) eklendi
+PROOF: cmd=npm run test:ios-migration; npm run test:ios-contract; npm run test:scaffold; npm run test:flow | result=PASS/PASS/PASS/PASS | files=research/ios_migration_notes.md,scripts/ios_migration_notes.test.mjs,backend/package.json
+NEXT: LV-18 strict/readable benchmark baseline

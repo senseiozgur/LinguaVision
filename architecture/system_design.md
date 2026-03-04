@@ -132,6 +132,10 @@ PDF layout korumayi iyilestirmek icin mevcut dokuman-ceviri akisina parse-anchor
   - `free` size cap enforced
   - `pro` size allowance validated on same input size
 
+### LV-17 Status
+- iOS migration notes published (`research/ios_migration_notes.md`).
+- Migration doc guard test added (`scripts/ios_migration_notes.test.mjs`).
+
 ## iOS Contract (Frozen)
 - `POST /jobs` -> `{ job_id, status }`
 - `POST /jobs/{id}/run` -> `{ accepted, job_id, status, idempotent? }`

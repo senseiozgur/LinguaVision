@@ -2,7 +2,7 @@
 
 MODE: SINGLE_AGENT
 OWNER: Cevher
-ACTIVE_TASK: LV-17 iOS client integration fixture and migration notes
+ACTIVE_TASK: LV-18 strict/readable performance benchmark baselines
 LAST_SYNC_BRANCH: main
 LAST_COMMIT: pending
 LAST_PUSH: pending
@@ -14,6 +14,6 @@ LAST_PUSH: pending
 4. Commit -> pull --rebase -> push.
 
 ## Last Update
-- TS: 1772619389
-- SUMMARY: LV-16 cost-package enforcement matrix completed with full PASS suite.
-- NEXT_STEP: add iOS integration fixture docs and migration checklist.
+- TS: 1772619768
+- SUMMARY: LV-17 iOS migration notes + guard test completed.
+- NEXT_STEP: add strict/readable latency and cost benchmark baseline script.

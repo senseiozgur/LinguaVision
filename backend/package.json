@@ -8,7 +8,8 @@
     "test:scaffold": "node ../scripts/scaffold.test.mjs",
     "test:flow": "node ../scripts/jobs_flow.test.mjs",
     "test:audit-compact": "node ../scripts/audit_compact.mjs",
-    "test:ios-contract": "node ../scripts/ios_contract_compat.test.mjs"
+    "test:ios-contract": "node ../scripts/ios_contract_compat.test.mjs",
+    "test:ios-migration": "node ../scripts/ios_migration_notes.test.mjs"
   },
   "dependencies": {
     "express": "^4.19.2",
