@@ -1,5 +1,6 @@
 ﻿import path from "path";
 import { fileURLToPath } from "url";
+import crypto from "crypto";
 import express from "express";
 import { createJobsRouter } from "./routes/jobs.routes.js";
 import { JobStore } from "./jobs/job.store.js";
@@ -13,6 +14,29 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+app.use((req, res, next) => {
+  const requestId = (req.get("x-request-id") || "").trim() || crypto.randomUUID();
+  req.requestId = requestId;
+  res.locals.request_id = requestId;
+  res.setHeader("x-request-id", requestId);
+  const startedAt = Date.now();
+
+  res.on("finish", () => {
+    const event = {
+      request_id: requestId,
+      method: req.method,
+      path: req.path,
+      status: res.statusCode,
+      job_id: res.locals.job_id || null,
+      billing_request_id: res.locals.billing_request_id || null,
+      duration_ms: Date.now() - startedAt
+    };
+    console.log(JSON.stringify(event));
+  });
+
+  next();
+});
+
 const jobs = new JobStore();
 const storage = new LocalStorage(path.resolve(__dirname, "../storage-data"));
 const cacheMaxEntries = Number(process.env.TRANSLATION_CACHE_MAX || 200);

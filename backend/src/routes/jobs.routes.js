@@ -147,6 +147,8 @@ export function createJobsRouter(deps) {
       res.status(404).json({ error: "job_not_found" });
       return null;
     }
+    res.locals.job_id = job.id;
+    res.locals.billing_request_id = job.billing?.billing_request_id || null;
     return job;
   }
 
@@ -386,6 +388,7 @@ export function createJobsRouter(deps) {
       source_lang: sourceLang,
       input_file_path: ""
     });
+    res.locals.job_id = temp.id;
 
     const inputPath = await deps.storage.saveInput(temp.id, file.originalname || "input.pdf", file.buffer);
     deps.jobs.update(temp.id, {
@@ -402,6 +405,8 @@ export function createJobsRouter(deps) {
     bump("jobs_run_total");
     const job = ensureOwnedJob(req, res);
     if (!job) return;
+    res.locals.job_id = job.id;
+    res.locals.billing_request_id = job.billing?.billing_request_id || null;
     if (job.status === "PROCESSING" || job.status === "READY") {
       return res.status(202).json({
         accepted: true,
@@ -502,6 +507,8 @@ export function createJobsRouter(deps) {
     if (!result.ok) {
       return res.status(409).json({ error: result.error });
     }
+    const latest = deps.jobs.get(job.id);
+    res.locals.billing_request_id = latest?.billing?.billing_request_id || null;
 
     return res.status(202).json({ accepted: true, job_id: job.id, status: "PROCESSING" });
   });
