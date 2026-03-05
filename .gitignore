@@ -1,3 +1,7 @@
 .coord/
 backend/node_modules/
 backend/storage-data/
+.vscode/
+supabase/.temp/
+backend/.env
+ornek.pdf

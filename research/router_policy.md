@@ -83,10 +83,10 @@
 - Provider abstraction prensibi: `D:/dev/proje/Deepl/docs/PROVIDER_ARCHITECTURE.md`
 - Job/billing determinism: `D:/dev/proje/Deepl/backend/src/jobs/job.runner.ts`
 - API polling shape: `D:/dev/proje/Deepl/docs/API_CONTRACT.md`, `D:/dev/proje/Deepl/ios-client/LinguaFlowIOS/TranslateViewModel.swift:60-89`
-- Fallback pratigi (prototip): `D:/dev/proje/LinguaVision/sources/ProCeviriAI/app.py:343-427`
-- Cache + multi-service yaklasimi: `D:/dev/proje/LinguaVision/sources/PDFMathTranslate/docs/ADVANCED.md:59-69`, `D:/dev/proje/LinguaVision/sources/PDFMathTranslate/docs/ADVANCED.md:265-270`
+- Fallback pratigi (prototip): `https://github.com/4hmetziya/ProCeviriAI/blob/main/app.py`
+- Cache + multi-service yaklasimi: `https://github.com/PDFMathTranslate/PDFMathTranslate/blob/main/docs/ADVANCED.md`
 
-## Phase-1 Freeze Decisions (Olgun+Cevher)
+## Phase-1 Freeze Decisions
 - D1: Paket bazli sabit fallback zinciri korunacak (free: economy->standard, pro: standard->premium->economy, premium: premium->standard->economy).
 - D2: MVP teslim kapsaminda iOS tarafi `async job + poll + output` ile sinirli.
 - D3: Cost guard iki seviyeli zorunlu: admission worst-case block + runtime step guard.

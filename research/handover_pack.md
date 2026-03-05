@@ -41,5 +41,5 @@
 - Review reliability playbook before staging rollout
 
 ## Ownership Note
-- Single-agent mode (Cevher) used during build-out.
-- Coordination logs: `chat/chat.md`, `chat/handoff.md`, `tasks/tasks.md`.
+- Single-agent mode used during build-out.
+- Operational traceability is maintained via `tasks/tasks.md` and `audit/audit-log.md`.

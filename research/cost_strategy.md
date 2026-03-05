@@ -5,9 +5,9 @@
 - Varsayilan dusuk maliyet: once economy tier, kalite gerekirse kontrollu escalation.
 - Guardrail'siz fallback yasak: her fallback oncesi paket limitleri ve remaining budget kontrol edilir.
 - Kanit referanslari:
-- `D:/dev/proje/LinguaVision/sources/pdf-translator-for-human/README.md:21-26` (sayfa bazli tuketim mantigi)
-- `D:/dev/proje/LinguaVision/sources/PDFMathTranslate/docs/ADVANCED.md:265-270` (cache ile API cagrisi azaltma)
-- `D:/dev/proje/LinguaVision/sources/ProCeviriAI/app.py:343-427` (retry + fallback davranisi)
+- `https://github.com/davideuler/pdf-translator-for-human/blob/main/README.md` (sayfa bazli tuketim mantigi)
+- `https://github.com/PDFMathTranslate/PDFMathTranslate/blob/main/docs/ADVANCED.md` (cache ile API cagrisi azaltma)
+- `https://github.com/4hmetziya/ProCeviriAI/blob/main/app.py` (retry + fallback davranisi)
 
 ## Packaging Model
 
