@@ -12,9 +12,17 @@ const repoRoot = path.resolve(__dirname, "..");
 const backendDir = path.join(repoRoot, "backend");
 const port = 8792;
 const baseUrl = `http://127.0.0.1:${port}`;
+const API_KEY = "lv-test-key";
+const rawFetch = globalThis.fetch.bind(globalThis);
 
 const notes = [];
 let server;
+
+async function apiFetch(url, init = {}) {
+  const headers = new Headers(init.headers || {});
+  headers.set("x-api-key", API_KEY);
+  return rawFetch(url, { ...init, headers });
+}
 
 async function wait(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -24,7 +32,7 @@ async function waitForServerReady(timeoutMs = 12000) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     try {
-      const res = await fetch(`${baseUrl}/jobs/non-existent-id`);
+      const res = await apiFetch(`${baseUrl}/jobs/non-existent-id`);
       if (res.status === 404) return;
     } catch {
       // keep polling
@@ -53,7 +61,7 @@ async function postJobWithSize({ targetLang = "tr", packageName = "free", remain
   pdfBytes[5] = 0x25;
   const blob = new Blob([pdfBytes], { type: "application/pdf" });
   form.append("file", blob, "sample.pdf");
-  return fetch(`${baseUrl}/jobs`, { method: "POST", body: form });
+  return apiFetch(`${baseUrl}/jobs`, { method: "POST", body: form });
 }
 
 async function postJobRaw(fields = {}) {
@@ -66,11 +74,11 @@ async function postJobRaw(fields = {}) {
   const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x0a, 0x25]);
   const blob = new Blob([pdfBytes], { type: "application/pdf" });
   form.append("file", blob, "sample.pdf");
-  return fetch(`${baseUrl}/jobs`, { method: "POST", body: form });
+  return apiFetch(`${baseUrl}/jobs`, { method: "POST", body: form });
 }
 
 async function getJob(jobId) {
-  const res = await fetch(`${baseUrl}/jobs/${jobId}`);
+  const res = await apiFetch(`${baseUrl}/jobs/${jobId}`);
   return res.json();
 }
 
@@ -92,7 +100,12 @@ async function main() {
         ...process.env,
         PORT: String(port),
         TRANSLATION_CACHE_PERSIST: "0",
-        BILLING_PROVIDER: "stub"
+        BILLING_PROVIDER: "stub",
+        LV_API_KEY: API_KEY,
+        LV_MAX_UPLOAD_BYTES: "52428800",
+        LV_RATE_LIMIT_CREATE_PER_MIN: "500",
+        LV_RATE_LIMIT_RUN_PER_MIN: "500",
+        LV_RATE_LIMIT_GET_PER_MIN: "500"
       },
       stdio: ["ignore", "pipe", "pipe"]
     });
@@ -110,20 +123,20 @@ async function main() {
     assert(created.job_id && created.status === "PENDING", "create response shape invalid");
     notes.push("PASS POST /jobs create contract (PENDING)");
 
-    const runRes = await fetch(`${baseUrl}/jobs/${created.job_id}/run`, { method: "POST" });
+    const runRes = await apiFetch(`${baseUrl}/jobs/${created.job_id}/run`, { method: "POST" });
     assert(runRes.status === 202, `run status expected 202 got ${runRes.status}`);
     const runJson = await runRes.json();
     assert(runJson.accepted === true && runJson.job_id === created.job_id, "run response shape invalid");
     assert(runJson.status === "PROCESSING", "run response should be PROCESSING");
     notes.push("PASS POST /jobs/:id/run contract (PROCESSING)");
 
-    const rerunRes = await fetch(`${baseUrl}/jobs/${created.job_id}/run`, { method: "POST" });
+    const rerunRes = await apiFetch(`${baseUrl}/jobs/${created.job_id}/run`, { method: "POST" });
     assert(rerunRes.status === 202, `rerun status expected 202 got ${rerunRes.status}`);
     const rerunJson = await rerunRes.json();
     assert(rerunJson.idempotent === true, "rerun should be idempotent");
     notes.push("PASS POST /jobs/:id/run idempotent re-run contract");
 
-    const getRes = await fetch(`${baseUrl}/jobs/${created.job_id}`);
+    const getRes = await apiFetch(`${baseUrl}/jobs/${created.job_id}`);
     assert(getRes.status === 200, `get status expected 200 got ${getRes.status}`);
     const job = await getRes.json();
     assert(job.status === "READY" && Number.isFinite(job.progress_pct), "job state expected READY");
@@ -135,7 +148,7 @@ async function main() {
     assert(typeof job.last_transition_at === "string", "last_transition_at should be present");
     notes.push("PASS GET /jobs/:id READY state transition");
 
-    const eventsRes = await fetch(`${baseUrl}/jobs/${created.job_id}/events`);
+    const eventsRes = await apiFetch(`${baseUrl}/jobs/${created.job_id}/events`);
     assert(eventsRes.status === 200, `events status expected 200 got ${eventsRes.status}`);
     const eventsJson = await eventsRes.json();
     const states = (eventsJson.events || []).map((e) => e.state);
@@ -144,7 +157,7 @@ async function main() {
     assert(states[states.length - 1] === "READY", "events last state should be READY");
     notes.push("PASS /jobs/:id/events success transition trace");
 
-    const outputRes = await fetch(`${baseUrl}/jobs/${created.job_id}/output`);
+    const outputRes = await apiFetch(`${baseUrl}/jobs/${created.job_id}/output`);
     assert(outputRes.status === 200, `output status expected 200 got ${outputRes.status}`);
     const ct = outputRes.headers.get("content-type") || "";
     assert(ct.includes("application/pdf"), "output content-type should be application/pdf");
@@ -154,7 +167,7 @@ async function main() {
     const cacheCreateRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 9999 });
     assert(cacheCreateRes.status === 201, `cache create expected 201 got ${cacheCreateRes.status}`);
     const cacheJob = await cacheCreateRes.json();
-    const cacheRunRes = await fetch(`${baseUrl}/jobs/${cacheJob.job_id}/run`, { method: "POST" });
+    const cacheRunRes = await apiFetch(`${baseUrl}/jobs/${cacheJob.job_id}/run`, { method: "POST" });
     assert(cacheRunRes.status === 202, `cache run expected 202 got ${cacheRunRes.status}`);
     const cacheGet = await getJob(cacheJob.job_id);
     assert(cacheGet.status === "READY", `cache job expected READY got ${cacheGet.status}`);
@@ -230,13 +243,13 @@ async function main() {
     assert(createFallbackRes.status === 201, `fallback create expected 201 got ${createFallbackRes.status}`);
     const fallbackJob = await createFallbackRes.json();
 
-    const fallbackRunRes = await fetch(
+    const fallbackRunRes = await apiFetch(
       `${baseUrl}/jobs/${fallbackJob.job_id}/run?simulate_fail_tiers=standard`,
       { method: "POST" }
     );
     assert(fallbackRunRes.status === 202, `fallback run expected 202 got ${fallbackRunRes.status}`);
 
-    const fallbackGetRes = await fetch(`${baseUrl}/jobs/${fallbackJob.job_id}`);
+    const fallbackGetRes = await apiFetch(`${baseUrl}/jobs/${fallbackJob.job_id}`);
     assert(fallbackGetRes.status === 200, "fallback get expected 200");
     const fallbackGet = await fallbackGetRes.json();
     assert(fallbackGet.status === "READY", "fallback job should end READY");
@@ -249,7 +262,7 @@ async function main() {
     assert(createFailRes.status === 201, `fail create expected 201 got ${createFailRes.status}`);
     const failJob = await createFailRes.json();
 
-    const failRunRes = await fetch(
+    const failRunRes = await apiFetch(
       `${baseUrl}/jobs/${failJob.job_id}/run?simulate_fail_tiers=standard,premium,economy`,
       { method: "POST" }
     );
@@ -257,7 +270,7 @@ async function main() {
     const failRun = await failRunRes.json();
     assert(failRun.error === "PROVIDER_TIMEOUT", `all-fail error expected PROVIDER_TIMEOUT got ${failRun.error}`);
 
-    const failGetRes = await fetch(`${baseUrl}/jobs/${failJob.job_id}`);
+    const failGetRes = await apiFetch(`${baseUrl}/jobs/${failJob.job_id}`);
     assert(failGetRes.status === 200, "fail get expected 200");
     const failGet = await failGetRes.json();
     assert(failGet.status === "FAILED", `failed state expected FAILED got ${failGet.status}`);
@@ -269,7 +282,7 @@ async function main() {
     assert(failGet.billing?.refunded === true, "failed job should be refunded once");
     notes.push("PASS provider all-tier-fail -> FAILED + normalized error");
 
-    const failRerunRes = await fetch(`${baseUrl}/jobs/${failJob.job_id}/run`, { method: "POST" });
+    const failRerunRes = await apiFetch(`${baseUrl}/jobs/${failJob.job_id}/run`, { method: "POST" });
     assert(failRerunRes.status === 409, `failed rerun expected 409 got ${failRerunRes.status}`);
     const failRerun = await failRerunRes.json();
     assert(failRerun.error === "job_already_running", `failed rerun expected job_already_running got ${failRerun.error}`);
@@ -280,7 +293,7 @@ async function main() {
     );
     notes.push("PASS retry run after failure does not double-charge");
 
-    const failEventsRes = await fetch(`${baseUrl}/jobs/${failJob.job_id}/events`);
+    const failEventsRes = await apiFetch(`${baseUrl}/jobs/${failJob.job_id}/events`);
     assert(failEventsRes.status === 200, `failed events status expected 200 got ${failEventsRes.status}`);
     const failEvents = await failEventsRes.json();
     const failStates = (failEvents.events || []).map((e) => e.state);
@@ -288,7 +301,7 @@ async function main() {
     assert(failStates[failStates.length - 1] === "FAILED", "failed events last state should be FAILED");
     notes.push("PASS /jobs/:id/events failure transition trace");
 
-    const failOutputRes = await fetch(`${baseUrl}/jobs/${failJob.job_id}/output`);
+    const failOutputRes = await apiFetch(`${baseUrl}/jobs/${failJob.job_id}/output`);
     assert(failOutputRes.status === 409, `failed output expected 409 got ${failOutputRes.status}`);
     notes.push("PASS failed output contract job_not_ready");
 
@@ -296,16 +309,16 @@ async function main() {
     const asyncCreateRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 9999 });
     assert(asyncCreateRes.status === 201, `async create expected 201 got ${asyncCreateRes.status}`);
     const asyncJob = await asyncCreateRes.json();
-    const asyncRunRes = await fetch(
+    const asyncRunRes = await apiFetch(
       `${baseUrl}/jobs/${asyncJob.job_id}/run?async=1&worker_delay_ms=250`,
       { method: "POST" }
     );
     assert(asyncRunRes.status === 202, `async run expected 202 got ${asyncRunRes.status}`);
-    const midRes = await fetch(`${baseUrl}/jobs/${asyncJob.job_id}`);
+    const midRes = await apiFetch(`${baseUrl}/jobs/${asyncJob.job_id}`);
     const midJob = await midRes.json();
     assert(midJob.status === "PROCESSING", `mid state expected PROCESSING got ${midJob.status}`);
     await wait(700);
-    const doneRes = await fetch(`${baseUrl}/jobs/${asyncJob.job_id}`);
+    const doneRes = await apiFetch(`${baseUrl}/jobs/${asyncJob.job_id}`);
     const doneJob = await doneRes.json();
     assert(doneJob.status === "READY", `final async state expected READY got ${doneJob.status}`);
     notes.push("PASS async worker-delay simulation for polling");
@@ -314,23 +327,23 @@ async function main() {
     const asyncFailCreateRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
     assert(asyncFailCreateRes.status === 201, `async fail create expected 201 got ${asyncFailCreateRes.status}`);
     const asyncFailJob = await asyncFailCreateRes.json();
-    const asyncFailRunRes = await fetch(
+    const asyncFailRunRes = await apiFetch(
       `${baseUrl}/jobs/${asyncFailJob.job_id}/run?async=1&worker_delay_ms=200&simulate_fail_tiers=standard,premium,economy`,
       { method: "POST" }
     );
     assert(asyncFailRunRes.status === 202, `async fail run expected 202 got ${asyncFailRunRes.status}`);
-    const asyncMidRes = await fetch(`${baseUrl}/jobs/${asyncFailJob.job_id}`);
+    const asyncMidRes = await apiFetch(`${baseUrl}/jobs/${asyncFailJob.job_id}`);
     const asyncMidJob = await asyncMidRes.json();
     assert(asyncMidJob.status === "PROCESSING", `async fail mid expected PROCESSING got ${asyncMidJob.status}`);
     await wait(700);
-    const asyncFailDoneRes = await fetch(`${baseUrl}/jobs/${asyncFailJob.job_id}`);
+    const asyncFailDoneRes = await apiFetch(`${baseUrl}/jobs/${asyncFailJob.job_id}`);
     const asyncFailDone = await asyncFailDoneRes.json();
     assert(asyncFailDone.status === "FAILED", `async fail final expected FAILED got ${asyncFailDone.status}`);
     assert(
       asyncFailDone.error_code === "PROVIDER_TIMEOUT",
       `async fail error_code expected PROVIDER_TIMEOUT got ${asyncFailDone.error_code}`
     );
-    const asyncFailEventsRes = await fetch(`${baseUrl}/jobs/${asyncFailJob.job_id}/events`);
+    const asyncFailEventsRes = await apiFetch(`${baseUrl}/jobs/${asyncFailJob.job_id}/events`);
     const asyncFailEvents = await asyncFailEventsRes.json();
     const asyncFailStates = (asyncFailEvents.events || []).map((e) => e.state);
     assert(asyncFailStates.includes("PROCESSING"), "async fail events should include PROCESSING");
@@ -341,7 +354,7 @@ async function main() {
     const knownErrCreateRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
     assert(knownErrCreateRes.status === 201, `known error create expected 201 got ${knownErrCreateRes.status}`);
     const knownErrJob = await knownErrCreateRes.json();
-    const knownErrRunRes = await fetch(
+    const knownErrRunRes = await apiFetch(
       `${baseUrl}/jobs/${knownErrJob.job_id}/run?simulate_fail_tiers=standard,premium,economy&simulate_fail_code=PROVIDER_RATE_LIMIT`,
       { method: "POST" }
     );
@@ -357,7 +370,7 @@ async function main() {
     const unknownErrCreateRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
     assert(unknownErrCreateRes.status === 201, `unknown error create expected 201 got ${unknownErrCreateRes.status}`);
     const unknownErrJob = await unknownErrCreateRes.json();
-    const unknownErrRunRes = await fetch(
+    const unknownErrRunRes = await apiFetch(
       `${baseUrl}/jobs/${unknownErrJob.job_id}/run?simulate_fail_tiers=standard,premium,economy&simulate_fail_code=RANDOM_PROVIDER_ERROR`,
       { method: "POST" }
     );
@@ -373,7 +386,7 @@ async function main() {
     const upstreamErrCreateRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
     assert(upstreamErrCreateRes.status === 201, `upstream error create expected 201 got ${upstreamErrCreateRes.status}`);
     const upstreamErrJob = await upstreamErrCreateRes.json();
-    const upstreamErrRunRes = await fetch(
+    const upstreamErrRunRes = await apiFetch(
       `${baseUrl}/jobs/${upstreamErrJob.job_id}/run?simulate_fail_tiers=standard,premium,economy&simulate_fail_code=PROVIDER_UPSTREAM_5XX`,
       { method: "POST" }
     );
@@ -395,7 +408,7 @@ async function main() {
     const timeoutCreateRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 9999 });
     assert(timeoutCreateRes.status === 201, `timeout create expected 201 got ${timeoutCreateRes.status}`);
     const timeoutJob = await timeoutCreateRes.json();
-    const timeoutRunRes = await fetch(
+    const timeoutRunRes = await apiFetch(
       `${baseUrl}/jobs/${timeoutJob.job_id}/run?simulate_provider_latency_ms=40&provider_timeout_ms=1`,
       { method: "POST" }
     );
@@ -410,7 +423,7 @@ async function main() {
     const retryCreateRes = await postJob({ targetLang: "tr", packageName: "pro", remainingUnits: 9999 });
     assert(retryCreateRes.status === 201, `retry create expected 201 got ${retryCreateRes.status}`);
     const retryJob = await retryCreateRes.json();
-    const retryRunRes = await fetch(
+    const retryRunRes = await apiFetch(
       `${baseUrl}/jobs/${retryJob.job_id}/run?simulate_retry_once_tiers=standard`,
       { method: "POST" }
     );
@@ -428,9 +441,9 @@ async function main() {
     assert(q2CreateRes.status === 201, `q2 create expected 201 got ${q2CreateRes.status}`);
     const q2 = await q2CreateRes.json();
 
-    const q1RunRes = await fetch(`${baseUrl}/jobs/${q1.job_id}/run?async=1&worker_delay_ms=500`, { method: "POST" });
+    const q1RunRes = await apiFetch(`${baseUrl}/jobs/${q1.job_id}/run?async=1&worker_delay_ms=500`, { method: "POST" });
     assert(q1RunRes.status === 202, `q1 async run expected 202 got ${q1RunRes.status}`);
-    const q2RunRes = await fetch(`${baseUrl}/jobs/${q2.job_id}/run?async=1`, { method: "POST" });
+    const q2RunRes = await apiFetch(`${baseUrl}/jobs/${q2.job_id}/run?async=1`, { method: "POST" });
     assert(q2RunRes.status === 202, `q2 async run expected 202 got ${q2RunRes.status}`);
 
     await wait(150);
@@ -446,14 +459,14 @@ async function main() {
     );
     notes.push("PASS single-worker queue ordering preserved for async jobs");
 
-    const notFoundRes = await fetch(`${baseUrl}/jobs/nope/run`, { method: "POST" });
+    const notFoundRes = await apiFetch(`${baseUrl}/jobs/nope/run`, { method: "POST" });
     assert(notFoundRes.status === 404, `run missing job expected 404 got ${notFoundRes.status}`);
     notes.push("PASS job_not_found contract");
 
     const badRunCreateRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 9999 });
     assert(badRunCreateRes.status === 201, `bad run create expected 201 got ${badRunCreateRes.status}`);
     const badRunJob = await badRunCreateRes.json();
-    const badRunRes = await fetch(`${baseUrl}/jobs/${badRunJob.job_id}/run?simulate_fail_tier=gold`, {
+    const badRunRes = await apiFetch(`${baseUrl}/jobs/${badRunJob.job_id}/run?simulate_fail_tier=gold`, {
       method: "POST"
     });
     assert(badRunRes.status === 400, `invalid run tier expected 400 got ${badRunRes.status}`);
@@ -469,7 +482,7 @@ async function main() {
     });
     assert(strictCreateRes.status === 201, `strict create expected 201 got ${strictCreateRes.status}`);
     const strictJob = await strictCreateRes.json();
-    const strictRunRes = await fetch(
+    const strictRunRes = await apiFetch(
       `${baseUrl}/jobs/${strictJob.job_id}/run?simulate_layout_missing_anchor_count=2`,
       { method: "POST" }
     );
@@ -487,11 +500,11 @@ async function main() {
     );
     notes.push("PASS strict quality gate blocks missing-anchor output");
 
-    const eventsMissingRes = await fetch(`${baseUrl}/jobs/nope/events`);
+    const eventsMissingRes = await apiFetch(`${baseUrl}/jobs/nope/events`);
     assert(eventsMissingRes.status === 404, `events missing job expected 404 got ${eventsMissingRes.status}`);
     notes.push("PASS events job_not_found contract");
 
-    const metricsRes = await fetch(`${baseUrl}/jobs/metrics`);
+    const metricsRes = await apiFetch(`${baseUrl}/jobs/metrics`);
     assert(metricsRes.status === 200, `metrics status expected 200 got ${metricsRes.status}`);
     const metrics = await metricsRes.json();
     assert(typeof metrics.jobs_create_total === "number", "metrics jobs_create_total should be number");
@@ -537,3 +550,4 @@ async function main() {
 }
 
 await main();
+

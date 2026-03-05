@@ -23,6 +23,7 @@
       ux_hint: null,
       input_file_path: input.input_file_path,
       output_file_path: null,
+      owner_id: input.owner_id || null,
       source_lang: input.source_lang || null,
       target_lang: input.target_lang,
       events: [{ state: "PENDING", at: now }],

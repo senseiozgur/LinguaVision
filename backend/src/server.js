@@ -35,7 +35,14 @@ const billingProvider = (process.env.BILLING_PROVIDER || "supabase").toLowerCase
 const billingAdapter =
   billingProvider === "stub" ? createBillingStubAdapter() : createSupabaseBillingAdapterFromEnv(process.env);
 
-const shared = { jobs, storage, providerAdapter, featureFlags, billingAdapter };
+const shared = {
+  jobs,
+  storage,
+  providerAdapter,
+  featureFlags,
+  billingAdapter,
+  apiKey: process.env.LV_API_KEY || ""
+};
 const queue = new JobQueue({
   processFn: async (payload) => {
     if (!shared.processJob) return;

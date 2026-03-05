@@ -5,13 +5,55 @@ import { estimateStepUnits, validateAdmission, validateRuntimeStep } from "../ro
 import { getTierMultiplier, planRoute } from "../providers/provider.router.js";
 import { BillingError, toSafeBillingErrorCode } from "../billing/billing.adapter.js";
 
-const upload = multer({ storage: multer.memoryStorage() });
+const MAX_UPLOAD_BYTES = Number(process.env.LV_MAX_UPLOAD_BYTES || 15 * 1024 * 1024);
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: MAX_UPLOAD_BYTES,
+    fields: 32,
+    fieldSize: 64 * 1024
+  }
+});
 const ALLOWED_PACKAGES = new Set(["free", "pro", "premium"]);
 const ALLOWED_MODES = new Set(["readable", "strict"]);
 const ALLOWED_TIERS = new Set(["economy", "standard", "premium"]);
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function deriveOwnerId(apiKey) {
+  return crypto.createHash("sha256").update(apiKey).digest("hex").slice(0, 8);
+}
+
+function createRateLimiter({ windowMs, max, name }) {
+  const buckets = new Map();
+
+  return function rateLimiter(req, res, next) {
+    const now = Date.now();
+    const key = `${req.ip || "unknown"}:${name}`;
+    const current = buckets.get(key);
+    if (!current || now >= current.resetAt) {
+      buckets.set(key, { count: 1, resetAt: now + windowMs });
+      return next();
+    }
+    if (current.count >= max) {
+      return res.status(429).json({ error: "rate_limited" });
+    }
+    current.count += 1;
+    return next();
+  };
+}
+
+function isMulterLimitError(err) {
+  return (
+    err &&
+    (err.code === "LIMIT_FILE_SIZE" ||
+      err.code === "LIMIT_FIELD_VALUE" ||
+      err.code === "LIMIT_FIELD_KEY" ||
+      err.code === "LIMIT_FIELD_COUNT" ||
+      err.code === "LIMIT_PART_COUNT")
+  );
 }
 
 
@@ -44,6 +86,25 @@ function mapErrorToUxHint(errorCode) {
 
 export function createJobsRouter(deps) {
   const router = express.Router();
+  const configuredApiKeys = (deps.apiKey || "")
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
+  const createLimiter = createRateLimiter({
+    windowMs: 60_000,
+    max: Number(process.env.LV_RATE_LIMIT_CREATE_PER_MIN || 10),
+    name: "jobs_create"
+  });
+  const runLimiter = createRateLimiter({
+    windowMs: 60_000,
+    max: Number(process.env.LV_RATE_LIMIT_RUN_PER_MIN || 30),
+    name: "jobs_run"
+  });
+  const getLimiter = createRateLimiter({
+    windowMs: 60_000,
+    max: Number(process.env.LV_RATE_LIMIT_GET_PER_MIN || 120),
+    name: "jobs_get"
+  });
   const featureFlags = deps.featureFlags || {
     disableLayoutPipeline: false,
     disableTranslationCache: false,
@@ -65,6 +126,38 @@ export function createJobsRouter(deps) {
 
   function bump(key) {
     stats[key] = (stats[key] || 0) + 1;
+  }
+
+  function requireApiKey(req, res, next) {
+    const provided = (req.get("x-api-key") || "").toString();
+    if (!configuredApiKeys.length || !provided || !configuredApiKeys.includes(provided)) {
+      return res.status(401).json({ error: "unauthorized" });
+    }
+    req.auth = { owner_id: deriveOwnerId(provided) };
+    return next();
+  }
+
+  function ensureOwnedJob(req, res) {
+    const job = deps.jobs.get(req.params.id);
+    if (!job) {
+      res.status(404).json({ error: "job_not_found" });
+      return null;
+    }
+    if (!job.owner_id || job.owner_id !== req.auth?.owner_id) {
+      res.status(404).json({ error: "job_not_found" });
+      return null;
+    }
+    return job;
+  }
+
+  function parseUpload(req, res, next) {
+    upload.single("file")(req, res, (err) => {
+      if (!err) return next();
+      if (isMulterLimitError(err)) {
+        return res.status(413).json({ error: "payload_too_large" });
+      }
+      return res.status(400).json({ error: "invalid_input" });
+    });
   }
 
   async function processJob({
@@ -255,7 +348,7 @@ export function createJobsRouter(deps) {
   // Expose process fn to server queue adapter
   deps.processJob = processJob;
 
-  router.post("/", upload.single("file"), async (req, res) => {
+  router.post("/", requireApiKey, createLimiter, parseUpload, async (req, res) => {
     bump("jobs_create_total");
     const file = req.file;
     const targetLang = (req.body?.target_lang || "").toString().trim();
@@ -288,6 +381,7 @@ export function createJobsRouter(deps) {
     }
 
     const temp = deps.jobs.create({
+      owner_id: req.auth.owner_id,
       target_lang: targetLang,
       source_lang: sourceLang,
       input_file_path: ""
@@ -304,10 +398,10 @@ export function createJobsRouter(deps) {
     return res.status(201).json({ job_id: temp.id, status: "PENDING" });
   });
 
-  router.post("/:id/run", async (req, res) => {
+  router.post("/:id/run", requireApiKey, runLimiter, async (req, res) => {
     bump("jobs_run_total");
-    const job = deps.jobs.get(req.params.id);
-    if (!job) return res.status(404).json({ error: "job_not_found" });
+    const job = ensureOwnedJob(req, res);
+    if (!job) return;
     if (job.status === "PROCESSING" || job.status === "READY") {
       return res.status(202).json({
         accepted: true,
@@ -412,7 +506,7 @@ export function createJobsRouter(deps) {
     return res.status(202).json({ accepted: true, job_id: job.id, status: "PROCESSING" });
   });
 
-  router.get("/metrics", (req, res) => {
+  router.get("/metrics", requireApiKey, (req, res) => {
     const queue = deps.queue || null;
     const queueDepth = queue && Array.isArray(queue.q) ? queue.q.length : 0;
     const queueBusy = Boolean(queue && queue.busy);
@@ -431,10 +525,10 @@ export function createJobsRouter(deps) {
     });
   });
 
-  router.get("/:id", (req, res) => {
+  router.get("/:id", requireApiKey, getLimiter, (req, res) => {
     bump("jobs_get_total");
-    const job = deps.jobs.get(req.params.id);
-    if (!job) return res.status(404).json({ error: "job_not_found" });
+    const job = ensureOwnedJob(req, res);
+    if (!job) return;
     return res.status(200).json({
       job_id: job.id,
       status: job.status,
@@ -452,17 +546,17 @@ export function createJobsRouter(deps) {
     });
   });
 
-  router.get("/:id/events", (req, res) => {
+  router.get("/:id/events", requireApiKey, getLimiter, (req, res) => {
     bump("jobs_events_total");
-    const events = deps.jobs.getEvents(req.params.id);
-    if (!events) return res.status(404).json({ error: "job_not_found" });
-    return res.status(200).json({ job_id: req.params.id, events });
+    const job = ensureOwnedJob(req, res);
+    if (!job) return;
+    return res.status(200).json({ job_id: req.params.id, events: job.events || [] });
   });
 
-  router.get("/:id/output", async (req, res) => {
+  router.get("/:id/output", requireApiKey, getLimiter, async (req, res) => {
     bump("jobs_output_total");
-    const job = deps.jobs.get(req.params.id);
-    if (!job) return res.status(404).json({ error: "job_not_found" });
+    const job = ensureOwnedJob(req, res);
+    if (!job) return;
     if (job.status !== "READY") return res.status(409).json({ error: "job_not_ready" });
 
     const bytes = await deps.storage.readFile(job.output_file_path);
