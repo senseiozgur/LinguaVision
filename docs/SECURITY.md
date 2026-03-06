@@ -44,6 +44,11 @@
 - `LV_METRICS_API_KEY` (recommended internal-only key)
 - `LV_METRICS_ALLOW_PRIMARY_KEY` (`1` default for compatibility; set `0` to require dedicated metrics key)
 
+## Supabase Backend Credentials
+- Backend runtime requires `SUPABASE_SERVICE_ROLE_KEY` for privileged storage/billing/jobs operations.
+- `SUPABASE_SERVICE_ROLE_KEY` must be `sb_secret_*` or legacy `service_role` JWT.
+- Publishable/anon keys must never be used as backend service-role key.
+
 ## Upload Limits
 - Multer memory upload limit: `LV_MAX_UPLOAD_BYTES` (default `15728640`, 15MB)
 - Oversize response: `413 {"error":"payload_too_large"}`
