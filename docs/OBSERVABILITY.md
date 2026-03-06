@@ -20,3 +20,24 @@ Example:
 
 ## Secret Handling
 - API keys are never logged.
+
+## Metrics Hardening + Ops Signals
+- `/jobs/metrics` includes hardening/runtime fields:
+- `rate_limit_mode`
+- `rate_limit_shared_errors_total`
+- `rate_limit_shared_hits_total`
+- `rate_limit_memory_hits_total`
+- `output_cache_entries`
+- `output_cache_hits_total`
+- `output_cache_misses_total`
+- `output_cache_evictions_total`
+- `output_cache_persist_enabled`
+
+## Retention / Cleanup Notes
+- Storage retention is not automatic by default.
+- Local mode can be cleaned manually with:
+- `node scripts/retention_cleanup.mjs`
+- Optional env knobs for cleanup command:
+- `RETENTION_INPUT_DAYS` (default `7`)
+- `RETENTION_OUTPUT_DAYS` (default `30`)
+- `RETENTION_CACHE_DAYS` (default `30`)

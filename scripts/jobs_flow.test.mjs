@@ -127,7 +127,7 @@ async function main() {
     assert(runRes.status === 202, `run status expected 202 got ${runRes.status}`);
     const runJson = await runRes.json();
     assert(runJson.accepted === true && runJson.job_id === created.job_id, "run response shape invalid");
-    assert(runJson.status === "PROCESSING", "run response should be PROCESSING");
+    assert(runJson.status === "QUEUED", "run response should be QUEUED");
     notes.push("PASS POST /jobs/:id/run contract (PROCESSING)");
 
     const rerunRes = await apiFetch(`${baseUrl}/jobs/${created.job_id}/run`, { method: "POST" });
@@ -136,9 +136,7 @@ async function main() {
     assert(rerunJson.idempotent === true, "rerun should be idempotent");
     notes.push("PASS POST /jobs/:id/run idempotent re-run contract");
 
-    const getRes = await apiFetch(`${baseUrl}/jobs/${created.job_id}`);
-    assert(getRes.status === 200, `get status expected 200 got ${getRes.status}`);
-    const job = await getRes.json();
+    const job = await waitForJobStatus(created.job_id, "READY", 5000);
     assert(job.status === "READY" && Number.isFinite(job.progress_pct), "job state expected READY");
     assert(typeof job.selected_tier === "string", "selected_tier should be present");
     assert(typeof job.layout_metrics?.anchor_count === "number", "layout_metrics.anchor_count should be present");
@@ -154,7 +152,7 @@ async function main() {
     const states = (eventsJson.events || []).map((e) => e.state);
     assert(states[0] === "PENDING", "events first state should be PENDING");
     assert(states.includes("PROCESSING"), "events should include PROCESSING");
-    assert(states[states.length - 1] === "READY", "events last state should be READY");
+    assert(states.includes("READY"), "events should include READY");
     notes.push("PASS /jobs/:id/events success transition trace");
 
     const outputRes = await apiFetch(`${baseUrl}/jobs/${created.job_id}/output`);
@@ -169,7 +167,7 @@ async function main() {
     const cacheJob = await cacheCreateRes.json();
     const cacheRunRes = await apiFetch(`${baseUrl}/jobs/${cacheJob.job_id}/run`, { method: "POST" });
     assert(cacheRunRes.status === 202, `cache run expected 202 got ${cacheRunRes.status}`);
-    const cacheGet = await getJob(cacheJob.job_id);
+    const cacheGet = await waitForJobStatus(cacheJob.job_id, "READY", 5000);
     assert(cacheGet.status === "READY", `cache job expected READY got ${cacheGet.status}`);
     assert(cacheGet.translation_cache_hit === true, "second same-doc run should set translation_cache_hit=true");
     notes.push("PASS deterministic translation cache hit on repeated same-document job");
@@ -249,9 +247,7 @@ async function main() {
     );
     assert(fallbackRunRes.status === 202, `fallback run expected 202 got ${fallbackRunRes.status}`);
 
-    const fallbackGetRes = await apiFetch(`${baseUrl}/jobs/${fallbackJob.job_id}`);
-    assert(fallbackGetRes.status === 200, "fallback get expected 200");
-    const fallbackGet = await fallbackGetRes.json();
+    const fallbackGet = await waitForJobStatus(fallbackJob.job_id, "READY", 5000);
     assert(fallbackGet.status === "READY", "fallback job should end READY");
     assert((fallbackGet.billing?.charged_units || 0) >= 1, "fallback should remain charged");
     assert(typeof fallbackGet.cost_delta_units === "number", "fallback cost_delta_units should be present");
@@ -266,13 +262,9 @@ async function main() {
       `${baseUrl}/jobs/${failJob.job_id}/run?simulate_fail_tiers=standard,premium,economy`,
       { method: "POST" }
     );
-    assert(failRunRes.status === 409, `all-fail run expected 409 got ${failRunRes.status}`);
-    const failRun = await failRunRes.json();
-    assert(failRun.error === "PROVIDER_TIMEOUT", `all-fail error expected PROVIDER_TIMEOUT got ${failRun.error}`);
+    assert(failRunRes.status === 202, `all-fail run expected 202 got ${failRunRes.status}`);
 
-    const failGetRes = await apiFetch(`${baseUrl}/jobs/${failJob.job_id}`);
-    assert(failGetRes.status === 200, "fail get expected 200");
-    const failGet = await failGetRes.json();
+    const failGet = await waitForJobStatus(failJob.job_id, "FAILED", 5000);
     assert(failGet.status === "FAILED", `failed state expected FAILED got ${failGet.status}`);
     assert(
       failGet.error_code === "PROVIDER_TIMEOUT",
@@ -298,7 +290,7 @@ async function main() {
     const failEvents = await failEventsRes.json();
     const failStates = (failEvents.events || []).map((e) => e.state);
     assert(failStates.includes("PROCESSING"), "failed events should include PROCESSING");
-    assert(failStates[failStates.length - 1] === "FAILED", "failed events last state should be FAILED");
+    assert(failStates.includes("FAILED"), "failed events should include FAILED");
     notes.push("PASS /jobs/:id/events failure transition trace");
 
     const failOutputRes = await apiFetch(`${baseUrl}/jobs/${failJob.job_id}/output`);
@@ -316,10 +308,8 @@ async function main() {
     assert(asyncRunRes.status === 202, `async run expected 202 got ${asyncRunRes.status}`);
     const midRes = await apiFetch(`${baseUrl}/jobs/${asyncJob.job_id}`);
     const midJob = await midRes.json();
-    assert(midJob.status === "PROCESSING", `mid state expected PROCESSING got ${midJob.status}`);
-    await wait(700);
-    const doneRes = await apiFetch(`${baseUrl}/jobs/${asyncJob.job_id}`);
-    const doneJob = await doneRes.json();
+    assert(["QUEUED", "PROCESSING"].includes(midJob.status), `mid state expected QUEUED/PROCESSING got ${midJob.status}`);
+    const doneJob = await waitForJobStatus(asyncJob.job_id, "READY", 5000);
     assert(doneJob.status === "READY", `final async state expected READY got ${doneJob.status}`);
     notes.push("PASS async worker-delay simulation for polling");
 
@@ -334,10 +324,11 @@ async function main() {
     assert(asyncFailRunRes.status === 202, `async fail run expected 202 got ${asyncFailRunRes.status}`);
     const asyncMidRes = await apiFetch(`${baseUrl}/jobs/${asyncFailJob.job_id}`);
     const asyncMidJob = await asyncMidRes.json();
-    assert(asyncMidJob.status === "PROCESSING", `async fail mid expected PROCESSING got ${asyncMidJob.status}`);
-    await wait(700);
-    const asyncFailDoneRes = await apiFetch(`${baseUrl}/jobs/${asyncFailJob.job_id}`);
-    const asyncFailDone = await asyncFailDoneRes.json();
+    assert(
+      ["QUEUED", "PROCESSING"].includes(asyncMidJob.status),
+      `async fail mid expected QUEUED/PROCESSING got ${asyncMidJob.status}`
+    );
+    const asyncFailDone = await waitForJobStatus(asyncFailJob.job_id, "FAILED", 5000);
     assert(asyncFailDone.status === "FAILED", `async fail final expected FAILED got ${asyncFailDone.status}`);
     assert(
       asyncFailDone.error_code === "PROVIDER_TIMEOUT",
@@ -347,7 +338,7 @@ async function main() {
     const asyncFailEvents = await asyncFailEventsRes.json();
     const asyncFailStates = (asyncFailEvents.events || []).map((e) => e.state);
     assert(asyncFailStates.includes("PROCESSING"), "async fail events should include PROCESSING");
-    assert(asyncFailStates[asyncFailStates.length - 1] === "FAILED", "async fail events last state should be FAILED");
+    assert(asyncFailStates.includes("FAILED"), "async fail events should include FAILED");
     notes.push("PASS async failure simulation for polling + events");
 
     // Error normalization: known provider code should be preserved
@@ -358,11 +349,11 @@ async function main() {
       `${baseUrl}/jobs/${knownErrJob.job_id}/run?simulate_fail_tiers=standard,premium,economy&simulate_fail_code=PROVIDER_RATE_LIMIT`,
       { method: "POST" }
     );
-    assert(knownErrRunRes.status === 409, `known error run expected 409 got ${knownErrRunRes.status}`);
-    const knownErrRun = await knownErrRunRes.json();
+    assert(knownErrRunRes.status === 202, `known error run expected 202 got ${knownErrRunRes.status}`);
+    const knownErrJobFinal = await waitForJobStatus(knownErrJob.job_id, "FAILED", 5000);
     assert(
-      knownErrRun.error === "PROVIDER_RATE_LIMIT",
-      `known error should preserve PROVIDER_RATE_LIMIT got ${knownErrRun.error}`
+      knownErrJobFinal.error_code === "PROVIDER_RATE_LIMIT",
+      `known error should preserve PROVIDER_RATE_LIMIT got ${knownErrJobFinal.error_code}`
     );
     notes.push("PASS known provider error code preserved");
 
@@ -374,11 +365,11 @@ async function main() {
       `${baseUrl}/jobs/${unknownErrJob.job_id}/run?simulate_fail_tiers=standard,premium,economy&simulate_fail_code=RANDOM_PROVIDER_ERROR`,
       { method: "POST" }
     );
-    assert(unknownErrRunRes.status === 409, `unknown error run expected 409 got ${unknownErrRunRes.status}`);
-    const unknownErrRun = await unknownErrRunRes.json();
+    assert(unknownErrRunRes.status === 202, `unknown error run expected 202 got ${unknownErrRunRes.status}`);
+    const unknownErrJobFinal = await waitForJobStatus(unknownErrJob.job_id, "FAILED", 5000);
     assert(
-      unknownErrRun.error === "PROVIDER_UPSTREAM_5XX",
-      `unknown error should normalize to PROVIDER_UPSTREAM_5XX got ${unknownErrRun.error}`
+      unknownErrJobFinal.error_code === "PROVIDER_UPSTREAM_5XX",
+      `unknown error should normalize to PROVIDER_UPSTREAM_5XX got ${unknownErrJobFinal.error_code}`
     );
     notes.push("PASS unknown provider error normalized to PROVIDER_UPSTREAM_5XX");
 
@@ -390,13 +381,8 @@ async function main() {
       `${baseUrl}/jobs/${upstreamErrJob.job_id}/run?simulate_fail_tiers=standard,premium,economy&simulate_fail_code=PROVIDER_UPSTREAM_5XX`,
       { method: "POST" }
     );
-    assert(upstreamErrRunRes.status === 409, `upstream error run expected 409 got ${upstreamErrRunRes.status}`);
-    const upstreamErrRun = await upstreamErrRunRes.json();
-    assert(
-      upstreamErrRun.error === "PROVIDER_UPSTREAM_5XX",
-      `upstream error expected PROVIDER_UPSTREAM_5XX got ${upstreamErrRun.error}`
-    );
-    const upstreamErrGet = await getJob(upstreamErrJob.job_id);
+    assert(upstreamErrRunRes.status === 202, `upstream error run expected 202 got ${upstreamErrRunRes.status}`);
+    const upstreamErrGet = await waitForJobStatus(upstreamErrJob.job_id, "FAILED", 5000);
     assert(upstreamErrGet.status === "FAILED", `upstream job expected FAILED got ${upstreamErrGet.status}`);
     assert(
       upstreamErrGet.ux_hint === "retry_or_fallback",
@@ -412,10 +398,12 @@ async function main() {
       `${baseUrl}/jobs/${timeoutJob.job_id}/run?simulate_provider_latency_ms=40&provider_timeout_ms=1`,
       { method: "POST" }
     );
-    assert(timeoutRunRes.status === 409, `timeout run expected 409 got ${timeoutRunRes.status}`);
-    const timeoutRun = await timeoutRunRes.json();
-    assert(timeoutRun.error === "PROVIDER_TIMEOUT", `timeout run expected PROVIDER_TIMEOUT got ${timeoutRun.error}`);
-    const timeoutGet = await getJob(timeoutJob.job_id);
+    assert(timeoutRunRes.status === 202, `timeout run expected 202 got ${timeoutRunRes.status}`);
+    const timeoutGet = await waitForJobStatus(timeoutJob.job_id, "FAILED", 5000);
+    assert(
+      timeoutGet.error_code === "PROVIDER_TIMEOUT",
+      `timeout run expected PROVIDER_TIMEOUT got ${timeoutGet.error_code}`
+    );
     assert(timeoutGet.billing?.refunded === true, "timeout failure should trigger refund");
     notes.push("PASS provider timeout policy tuning via query params");
 
@@ -428,7 +416,7 @@ async function main() {
       { method: "POST" }
     );
     assert(retryRunRes.status === 202, `retry run expected 202 got ${retryRunRes.status}`);
-    const retryGet = await getJob(retryJob.job_id);
+    const retryGet = await waitForJobStatus(retryJob.job_id, "READY", 5000);
     assert(retryGet.status === "READY", `retry job expected READY got ${retryGet.status}`);
     assert(retryGet.selected_tier === "standard", `retry should stay on standard got ${retryGet.selected_tier}`);
     notes.push("PASS same-tier single retry recovers without fallback escalation");
@@ -448,7 +436,7 @@ async function main() {
 
     await wait(150);
     const q2Mid = await getJob(q2.job_id);
-    assert(q2Mid.status === "PROCESSING", `q2 mid status expected PROCESSING got ${q2Mid.status}`);
+    assert(["QUEUED", "PROCESSING"].includes(q2Mid.status), `q2 mid status expected QUEUED/PROCESSING got ${q2Mid.status}`);
     assert(!q2Mid.selected_tier, "q2 should not be selected before worker executes");
 
     const q1Ready = await waitForJobStatus(q1.job_id, "READY");
@@ -486,14 +474,13 @@ async function main() {
       `${baseUrl}/jobs/${strictJob.job_id}/run?simulate_layout_missing_anchor_count=2`,
       { method: "POST" }
     );
-    assert(strictRunRes.status === 409, `strict quality gate run expected 409 got ${strictRunRes.status}`);
-    const strictRun = await strictRunRes.json();
-    assert(
-      strictRun.error === "LAYOUT_QUALITY_GATE_BLOCK",
-      `strict quality gate expected LAYOUT_QUALITY_GATE_BLOCK got ${strictRun.error}`
-    );
-    const strictGet = await getJob(strictJob.job_id);
+    assert(strictRunRes.status === 202, `strict quality gate run expected 202 got ${strictRunRes.status}`);
+    const strictGet = await waitForJobStatus(strictJob.job_id, "FAILED", 5000);
     assert(strictGet.status === "FAILED", `strict job expected FAILED got ${strictGet.status}`);
+    assert(
+      strictGet.error_code === "LAYOUT_QUALITY_GATE_BLOCK",
+      `strict quality gate expected LAYOUT_QUALITY_GATE_BLOCK got ${strictGet.error_code}`
+    );
     assert(
       strictGet.ux_hint === "switch_mode_or_fix_pdf",
       `strict ux_hint expected switch_mode_or_fix_pdf got ${strictGet.ux_hint}`

@@ -20,3 +20,25 @@ export function planRoute({ packageName = "free", mode = "readable" }) {
     maxEscalations: Math.max(0, chain.length - 1)
   };
 }
+
+export function getModeAProviderOrder(raw = "deepl,google") {
+  const allowed = new Set(["deepl", "google"]);
+  const list = String(raw || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .filter((name) => allowed.has(name));
+  if (list.length === 0) return ["deepl", "google"];
+  return [...new Set(list)];
+}
+
+export function getModeBProviderOrder(raw = "openai,groq") {
+  const allowed = new Set(["deepl_text", "google_text", "openai", "groq"]);
+  const list = String(raw || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .filter((name) => allowed.has(name));
+  if (list.length === 0) return ["openai", "groq"];
+  return [...new Set(list)];
+}

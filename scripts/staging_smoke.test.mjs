@@ -57,6 +57,19 @@ async function waitReady(timeoutMs = 12000) {
   throw new Error("server_not_ready");
 }
 
+async function waitForJobStatus(jobId, expectedStatus, timeoutMs = 5000) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const res = await apiFetch(`${baseUrl}/jobs/${jobId}`);
+    if (res.status === 200) {
+      const job = await res.json();
+      if (job.status === expectedStatus) return job;
+    }
+    await sleep(120);
+  }
+  throw new Error(`job ${jobId} did not reach ${expectedStatus}`);
+}
+
 async function main() {
   try {
     server = spawn(process.execPath, ["src/server.js"], {
@@ -103,9 +116,7 @@ async function main() {
     assert(runJson.accepted === true, "run payload accepted missing");
     notes.push("PASS run contract");
 
-    const getRes = await apiFetch(`${baseUrl}/jobs/${created.job_id}`);
-    assert(getRes.status === 200, `get expected 200 got ${getRes.status}`);
-    const job = await getRes.json();
+    const job = await waitForJobStatus(created.job_id, "READY");
     assert(job.status === "READY", `job expected READY got ${job.status}`);
     assert(typeof job.selected_tier === "string", "selected_tier missing");
     assert(typeof job.layout_metrics?.anchor_count === "number", "layout_metrics missing");

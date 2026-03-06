@@ -28,7 +28,8 @@ export class TranslationCache {
         if (!e?.key || typeof e?.output_b64 !== "string") continue;
         this.map.set(e.key, {
           outputBuffer: Buffer.from(e.output_b64, "base64"),
-          layoutMetrics: e.layout_metrics || null
+          layoutMetrics: e.layout_metrics || null,
+          meta: e.meta || null
         });
       }
       this.stats.cache_persist_load_total += 1;
@@ -47,7 +48,8 @@ export class TranslationCache {
         entries.push({
           key,
           output_b64: value.outputBuffer.toString("base64"),
-          layout_metrics: value.layoutMetrics || null
+          layout_metrics: value.layoutMetrics || null,
+          meta: value.meta || null
         });
       }
       fs.writeFileSync(this.persistPath, JSON.stringify({ entries }), "utf8");

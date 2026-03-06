@@ -15,7 +15,10 @@
 2. Refund once per `request_id` (refund key uniqueness).
 3. Ledger is append-only (`billing_ledger` rows are events).
 4. Refund path requires an existing charge identity.
-5. Job response exposes stable billing summary fields:
+5. Charge is performed immediately before the first provider request (not on queue/claim).
+6. Failures before first provider request remain `charge_state=NOT_CHARGED` and never trigger refund.
+7. Refund retry schedule is deterministic: `1m, 5m, 30m, 2h, 12h, 24h`.
+8. Job response exposes stable billing summary fields:
    `request_id`, `billing_request_id`, `charged_units`, `charged`, `refunded`.
 
 ## Failure Matrix
@@ -29,6 +32,16 @@
   - Expected: no additional charge (idempotent RPC + run-state gate).
 - Duplicate refund trigger
   - Expected: one refund event (`already_refunded=true` on repeat).
+- Refund fails after charge
+  - Expected: `charge_state=REFUND_PENDING` and automatic worker reconciliation.
+
+## Job Financial State
+- `NOT_CHARGED`
+- `CHARGED`
+- `REFUND_PENDING`
+- `REFUND_RETRYING`
+- `REFUNDED`
+- `REFUND_FAILED_FINAL`
 
 ## Operational Queries
 ```sql

@@ -1,9 +1,7 @@
 import express from "express";
 import multer from "multer";
 import crypto from "crypto";
-import { estimateStepUnits, validateAdmission, validateRuntimeStep } from "../routing/cost.guard.js";
-import { getTierMultiplier, planRoute } from "../providers/provider.router.js";
-import { BillingError, toSafeBillingErrorCode } from "../billing/billing.adapter.js";
+import { estimateStepUnits, validateAdmission } from "../routing/cost.guard.js";
 
 const MAX_UPLOAD_BYTES = Number(process.env.LV_MAX_UPLOAD_BYTES || 15 * 1024 * 1024);
 const upload = multer({
@@ -17,10 +15,8 @@ const upload = multer({
 const ALLOWED_PACKAGES = new Set(["free", "pro", "premium"]);
 const ALLOWED_MODES = new Set(["readable", "strict"]);
 const ALLOWED_TIERS = new Set(["economy", "standard", "premium"]);
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const ALLOWED_PROVIDER_MODES = new Set(["mode_a", "mode_b"]);
+const RUN_ERROR_CODES = ["LAYOUT_QUALITY_GATE_BLOCK"];
 
 function deriveOwnerId(apiKey) {
   return crypto.createHash("sha256").update(apiKey).digest("hex").slice(0, 8);
@@ -29,14 +25,34 @@ function deriveOwnerId(apiKey) {
 function createRateLimiter({ windowMs, max, name }) {
   const buckets = new Map();
 
-  return function rateLimiter(req, res, next) {
+  return async function rateLimiter(req, res, next) {
     const now = Date.now();
-    const key = `${req.ip || "unknown"}:${name}`;
+    const keySubject = req.auth?.owner_id || req.ip || "unknown";
+
+    if (req.rateLimitStore && typeof req.rateLimitStore.consume === "function") {
+      try {
+        const result = await req.rateLimitStore.consume({
+          scope: name,
+          subject: String(keySubject),
+          windowSec: Math.max(1, Math.ceil(windowMs / 1000)),
+          maxHits: max
+        });
+        if (!result.allowed) {
+          return res.status(429).json({ error: "rate_limited" });
+        }
+        return next();
+      } catch {
+        // fallback below if shared limiter fails unexpectedly
+      }
+    }
+
+    const key = `${keySubject}:${name}`;
     const current = buckets.get(key);
     if (!current || now >= current.resetAt) {
       buckets.set(key, { count: 1, resetAt: now + windowMs });
       return next();
     }
+
     if (current.count >= max) {
       return res.status(429).json({ error: "rate_limited" });
     }
@@ -74,18 +90,12 @@ function isValidLangCode(value) {
   return /^[a-z]{2,3}(-[A-Z]{2})?$/.test((value || "").toString().trim());
 }
 
-function mapErrorToUxHint(errorCode) {
-  if (errorCode === "INPUT_LIMIT_EXCEEDED") return "plan_limit_upgrade";
-  if (errorCode === "COST_GUARD_BLOCK") return "cost_limit_reduce_scope";
-  if (errorCode === "COST_LIMIT_STOP") return "cost_limit_partial_result";
-  if (errorCode && errorCode.startsWith("BILLING_")) return "retry_later";
-  if (errorCode === "LAYOUT_QUALITY_GATE_BLOCK") return "switch_mode_or_fix_pdf";
-  if (errorCode && errorCode.startsWith("PROVIDER_")) return "retry_or_fallback";
-  return "review_job_error";
-}
-
 export function createJobsRouter(deps) {
   const router = express.Router();
+  router.use((req, _res, next) => {
+    req.rateLimitStore = deps.rateLimitStore || null;
+    next();
+  });
   const configuredApiKeys = (deps.apiKey || "")
     .split(",")
     .map((k) => k.trim())
@@ -123,6 +133,12 @@ export function createJobsRouter(deps) {
     runtime_guard_block_total: 0
   };
   deps.stats = stats;
+  const metricsEnabled = deps.metricsEnabled !== false;
+  const metricsAllowPrimaryKey = deps.metricsAllowPrimaryKey !== false;
+  const metricsApiKeys = (deps.metricsApiKey || "")
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
 
   function bump(key) {
     stats[key] = (stats[key] || 0) + 1;
@@ -137,8 +153,26 @@ export function createJobsRouter(deps) {
     return next();
   }
 
-  function ensureOwnedJob(req, res) {
-    const job = deps.jobs.get(req.params.id);
+  function requireMetricsAccess(req, res, next) {
+    if (!metricsEnabled) {
+      return res.status(404).json({ error: "not_found" });
+    }
+    const metricsProvided = (req.get("x-metrics-key") || "").toString();
+    if (metricsApiKeys.length > 0) {
+      if (!metricsProvided || !metricsApiKeys.includes(metricsProvided)) {
+        return res.status(401).json({ error: "unauthorized" });
+      }
+      req.auth = { owner_id: "metrics" };
+      return next();
+    }
+    if (metricsAllowPrimaryKey) {
+      return requireApiKey(req, res, next);
+    }
+    return res.status(401).json({ error: "unauthorized" });
+  }
+
+  async function ensureOwnedJob(req, res) {
+    const job = await deps.jobs.get(req.params.id);
     if (!job) {
       res.status(404).json({ error: "job_not_found" });
       return null;
@@ -162,194 +196,6 @@ export function createJobsRouter(deps) {
     });
   }
 
-  async function processJob({
-    jobId,
-    requestId,
-    simulateFailTier,
-    simulateFailTiers,
-    simulateFailCode,
-    simulateRetryOnceTiers,
-    simulateLayoutMissingAnchorCount,
-    simulateLayoutOverflowCount,
-    simulateProviderLatencyMs,
-    providerTimeoutMs,
-    workerDelayMs
-  }) {
-    const job = deps.jobs.get(jobId);
-    if (!job) return { ok: false, error: "job_not_found" };
-    const runRequestId = requestId || job.billing?.request_id || crypto.randomUUID();
-
-    if (workerDelayMs > 0) {
-      await sleep(workerDelayMs);
-    }
-
-    const inBytes = await deps.storage.readFile(job.input_file_path);
-    const route = planRoute({ packageName: job.package_name || "free", mode: job.mode || "readable" });
-    const baseStepUnits = estimateStepUnits({ fileSizeBytes: inBytes.length, mode: route.mode });
-    const spentUnits = Number(job.billing?.charged_units || 0);
-    const unitsToCharge = Math.max(1, baseStepUnits);
-    let lastError = "ROUTER_NO_FALLBACK_PATH";
-    let chargeResult = null;
-
-    try {
-      chargeResult = await deps.billingAdapter.charge({
-        user_id: job.user_id || null,
-        job_id: job.id,
-        request_id: runRequestId,
-        units: unitsToCharge,
-        meta: {
-          mode: route.mode,
-          package_name: route.packageName,
-          source_lang: job.source_lang || null,
-          target_lang: job.target_lang || null
-        }
-      });
-      deps.jobs.update(job.id, {
-        billing: {
-          ...job.billing,
-          request_id: runRequestId,
-          billing_request_id: chargeResult.billing_request_id,
-          charged_units: Number(chargeResult.charged_units || unitsToCharge),
-          charged: true,
-          refunded: false
-        }
-      });
-    } catch (err) {
-      if (err instanceof BillingError) {
-        return { ok: false, error: err.code };
-      }
-      return { ok: false, error: toSafeBillingErrorCode(err) };
-    }
-
-    const effectiveChain = route.mode === "strict" ? [route.chain[0]] : route.chain;
-    for (let chainIndex = 0; chainIndex < effectiveChain.length; chainIndex++) {
-      const tier = effectiveChain[chainIndex];
-      const stepUnits = Math.ceil(baseStepUnits * getTierMultiplier(tier));
-      const baseEconomyUnits = Math.ceil(baseStepUnits * getTierMultiplier("economy"));
-      const runtimeGuard = validateRuntimeStep({
-        packageName: route.packageName,
-        spentUnits,
-        stepUnits
-      });
-
-      if (!runtimeGuard.ok) {
-        bump("runtime_guard_block_total");
-        lastError = runtimeGuard.error;
-        continue;
-      }
-
-      let translated = null;
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        if (attempt > 1) bump("provider_retry_total");
-        translated = await deps.providerAdapter.translateDocument({
-          inputBuffer: inBytes,
-          tier,
-          mode: route.mode,
-          simulateFailTier,
-          simulateFailTiers,
-          simulateFailCode,
-          simulateRetryOnceTiers,
-          simulateLayoutMissingAnchorCount,
-          simulateLayoutOverflowCount,
-          simulateProviderLatencyMs,
-          providerTimeoutMs,
-          jobId: job.id,
-          sourceLang: job.source_lang || null,
-          targetLang: job.target_lang || null
-        });
-
-        if (translated.ok) break;
-        lastError = translated.error || "PROVIDER_UPSTREAM_5XX";
-      }
-
-      if (!translated || !translated.ok) {
-        if (chainIndex < effectiveChain.length - 1) {
-          bump("provider_fallback_total");
-        }
-        continue;
-      }
-
-      const qualityGateFailed =
-        route.mode === "strict" &&
-        !featureFlags.disableStrictQualityGate &&
-        ((translated.layoutMetrics?.missing_anchor_count || 0) > 0 ||
-          (translated.layoutMetrics?.overflow_count || 0) > 0);
-      if (qualityGateFailed) {
-        lastError = "LAYOUT_QUALITY_GATE_BLOCK";
-        continue;
-      }
-
-      const outPath = await deps.storage.saveOutput(job.id, translated.outputBuffer);
-      deps.jobs.update(job.id, {
-        status: "READY",
-        progress_pct: 100,
-        output_file_path: outPath,
-        selected_tier: tier,
-        layout_metrics: translated.layoutMetrics || null,
-        translation_cache_hit: Boolean(translated.cacheHit),
-        quality_gate_passed: route.mode === "strict" ? true : null,
-        quality_gate_reason: null,
-        cost_delta_units: Math.max(0, stepUnits - baseEconomyUnits),
-        ux_hint: null,
-        billing: {
-          ...job.billing,
-          request_id: runRequestId,
-          billing_request_id: chargeResult.billing_request_id,
-          charged_units: Number(chargeResult.charged_units || unitsToCharge),
-          charged: true,
-          refunded: false
-        }
-      });
-      bump("jobs_ready_total");
-
-      return { ok: true };
-    }
-
-    if (chargeResult && chargeResult.billing_request_id) {
-      try {
-        const refundResult = await deps.billingAdapter.refund({
-          user_id: job.user_id || null,
-          job_id: job.id,
-          request_id: runRequestId,
-          billing_request_id: chargeResult.billing_request_id,
-          units: Number(chargeResult.charged_units || unitsToCharge),
-          reason: lastError,
-          meta: {
-            mode: route.mode,
-            package_name: route.packageName
-          }
-        });
-        deps.jobs.update(job.id, {
-          billing: {
-            ...job.billing,
-            request_id: runRequestId,
-            billing_request_id: chargeResult.billing_request_id,
-            charged_units: Number(chargeResult.charged_units || unitsToCharge),
-            charged: true,
-            refunded: Boolean(refundResult.refunded)
-          }
-        });
-      } catch {
-        lastError = "BILLING_REFUND_ERROR";
-      }
-    }
-
-    deps.jobs.update(job.id, {
-      status: "FAILED",
-      progress_pct: 100,
-      error_code: lastError,
-      quality_gate_passed: lastError === "LAYOUT_QUALITY_GATE_BLOCK" ? false : null,
-      quality_gate_reason: lastError === "LAYOUT_QUALITY_GATE_BLOCK" ? "strict_layout_guard" : null,
-      ux_hint: mapErrorToUxHint(lastError)
-    });
-    bump("jobs_failed_total");
-
-    return { ok: false, error: lastError };
-  }
-
-  // Expose process fn to server queue adapter
-  deps.processJob = processJob;
-
   router.post("/", requireApiKey, createLimiter, parseUpload, async (req, res) => {
     bump("jobs_create_total");
     const file = req.file;
@@ -357,6 +203,8 @@ export function createJobsRouter(deps) {
     const packageName = (req.body?.package || "free").toString().trim().toLowerCase();
     const mode = (req.body?.mode || "readable").toString().trim().toLowerCase();
     const sourceLang = req.body?.source_lang ? req.body.source_lang.toString().trim() : null;
+    const providerModeRaw = (req.body?.provider_mode || "mode_a").toString().trim().toLowerCase();
+    const providerMode = providerModeRaw === "mode_b" ? "MODE_B" : "MODE_A";
     const remainingUnitsRaw = req.body?.remaining_units;
     const remainingUnits = remainingUnitsRaw !== undefined ? Number(remainingUnitsRaw) : null;
     if (!file) return res.status(400).json({ error: "invalid_input" });
@@ -365,6 +213,7 @@ export function createJobsRouter(deps) {
     if (sourceLang && !isValidLangCode(sourceLang)) return res.status(400).json({ error: "invalid_input" });
     if (!ALLOWED_PACKAGES.has(packageName)) return res.status(400).json({ error: "invalid_input" });
     if (!ALLOWED_MODES.has(mode)) return res.status(400).json({ error: "invalid_input" });
+    if (!ALLOWED_PROVIDER_MODES.has(providerModeRaw)) return res.status(400).json({ error: "invalid_input" });
     if (packageName === "free" && mode === "strict") {
       return res.status(409).json({ error: "INPUT_LIMIT_EXCEEDED" });
     }
@@ -382,20 +231,26 @@ export function createJobsRouter(deps) {
       return res.status(status).json({ error: code });
     }
 
-    const temp = deps.jobs.create({
+    const temp = await deps.jobs.create({
       owner_id: req.auth.owner_id,
       target_lang: targetLang,
       source_lang: sourceLang,
+      provider_mode: providerMode,
       input_file_path: ""
     });
     res.locals.job_id = temp.id;
 
     const inputPath = await deps.storage.saveInput(temp.id, file.originalname || "input.pdf", file.buffer);
-    deps.jobs.update(temp.id, {
+    await deps.jobs.update(temp.id, {
       input_file_path: inputPath,
       package_name: packageName,
       mode,
+      provider_mode: providerMode,
       budget_units: admission.budgetUnits
+    });
+    await deps.jobs.appendJobEvent(temp.id, req.auth.owner_id, "JOB_CREATED", {
+      file_size_bytes: fileSizeBytes,
+      target_lang: targetLang
     });
 
     return res.status(201).json({ job_id: temp.id, status: "PENDING" });
@@ -403,11 +258,11 @@ export function createJobsRouter(deps) {
 
   router.post("/:id/run", requireApiKey, runLimiter, async (req, res) => {
     bump("jobs_run_total");
-    const job = ensureOwnedJob(req, res);
+    const job = await ensureOwnedJob(req, res);
     if (!job) return;
     res.locals.job_id = job.id;
     res.locals.billing_request_id = job.billing?.billing_request_id || null;
-    if (job.status === "PROCESSING" || job.status === "READY") {
+    if (job.status === "PROCESSING" || job.status === "READY" || job.status === "QUEUED") {
       return res.status(202).json({
         accepted: true,
         job_id: job.id,
@@ -440,10 +295,19 @@ export function createJobsRouter(deps) {
     }
     const workerDelayMs = Math.max(0, workerDelayRaw);
     const asyncRaw = req.query?.async;
+    const simulateFailBeforeProviderRaw = req.query?.simulate_fail_before_provider;
     if (asyncRaw !== undefined && asyncRaw !== "0" && asyncRaw !== "1") {
       return res.status(400).json({ error: "invalid_input" });
     }
+    if (
+      simulateFailBeforeProviderRaw !== undefined &&
+      simulateFailBeforeProviderRaw !== "0" &&
+      simulateFailBeforeProviderRaw !== "1"
+    ) {
+      return res.status(400).json({ error: "invalid_input" });
+    }
     const asyncMode = asyncRaw === "1";
+    const simulateFailBeforeProvider = simulateFailBeforeProviderRaw === "1";
     if (simulateFailTier && !ALLOWED_TIERS.has(simulateFailTier)) {
       return res.status(400).json({ error: "invalid_input" });
     }
@@ -452,68 +316,39 @@ export function createJobsRouter(deps) {
     }
 
     const runRequestId = job.billing?.request_id || crypto.randomUUID();
-    deps.jobs.update(job.id, {
-      status: "PROCESSING",
-      progress_pct: 30,
+    await deps.jobs.update(job.id, {
+      status: "QUEUED",
+      progress_pct: 10,
       billing: { ...job.billing, request_id: runRequestId }
     });
+    await deps.jobs.appendJobEvent(job.id, req.auth.owner_id, "JOB_RUN_REQUESTED", {
+      request_id: runRequestId
+    });
+    await deps.jobs.appendJobEvent(job.id, req.auth.owner_id, "JOB_QUEUED", {
+      request_id: runRequestId
+    });
 
-    if (asyncMode) {
-      if (deps.queue && typeof deps.queue.enqueue === "function") {
+    if (deps.queue && typeof deps.queue.enqueue === "function") {
         deps.queue.enqueue({
           jobId: job.id,
           requestId: runRequestId,
+          simulateFailBeforeProvider,
           simulateFailTier,
-          simulateFailTiers,
-          simulateFailCode,
-          simulateRetryOnceTiers,
-          simulateLayoutMissingAnchorCount,
-          simulateLayoutOverflowCount,
-          simulateProviderLatencyMs,
-          providerTimeoutMs,
-          workerDelayMs
-        });
-      } else {
-        void processJob({
-          jobId: job.id,
-          requestId: runRequestId,
-          simulateFailTier,
-          simulateFailTiers,
-          simulateFailCode,
-          simulateRetryOnceTiers,
-          simulateLayoutMissingAnchorCount,
-          simulateLayoutOverflowCount,
-          simulateProviderLatencyMs,
-          providerTimeoutMs,
-          workerDelayMs
-        });
-      }
-      return res.status(202).json({ accepted: true, job_id: job.id, status: "PROCESSING" });
+        simulateFailTiers,
+        simulateFailCode,
+        simulateRetryOnceTiers,
+        simulateLayoutMissingAnchorCount,
+        simulateLayoutOverflowCount,
+        simulateProviderLatencyMs,
+        providerTimeoutMs,
+        workerDelayMs
+      });
     }
 
-    const result = await processJob({
-      jobId: job.id,
-      requestId: runRequestId,
-      simulateFailTier,
-      simulateFailTiers,
-      simulateFailCode,
-      simulateRetryOnceTiers,
-      simulateLayoutMissingAnchorCount,
-      simulateLayoutOverflowCount,
-      simulateProviderLatencyMs,
-      providerTimeoutMs,
-      workerDelayMs
-    });
-    if (!result.ok) {
-      return res.status(409).json({ error: result.error });
-    }
-    const latest = deps.jobs.get(job.id);
-    res.locals.billing_request_id = latest?.billing?.billing_request_id || null;
-
-    return res.status(202).json({ accepted: true, job_id: job.id, status: "PROCESSING" });
+    return res.status(202).json({ accepted: true, job_id: job.id, status: "QUEUED" });
   });
 
-  router.get("/metrics", requireApiKey, (req, res) => {
+  router.get("/metrics", requireMetricsAccess, (req, res) => {
     const queue = deps.queue || null;
     const queueDepth = queue && Array.isArray(queue.q) ? queue.q.length : 0;
     const queueBusy = Boolean(queue && queue.busy);
@@ -521,9 +356,22 @@ export function createJobsRouter(deps) {
       deps.providerAdapter && typeof deps.providerAdapter.getCacheMetrics === "function"
         ? deps.providerAdapter.getCacheMetrics()
         : {};
+    const outputCacheMetrics =
+      deps.outputCache && typeof deps.outputCache.metrics === "function" ? deps.outputCache.metrics() : {};
+    const rateLimitMetrics =
+      deps.rateLimitStore && typeof deps.rateLimitStore.metrics === "function" ? deps.rateLimitStore.metrics() : {};
     return res.status(200).json({
       ...stats,
       ...cacheMetrics,
+      output_cache_entries: Number(outputCacheMetrics.cache_entries || 0),
+      output_cache_hits_total: Number(outputCacheMetrics.cache_hits_total || 0),
+      output_cache_misses_total: Number(outputCacheMetrics.cache_misses_total || 0),
+      output_cache_evictions_total: Number(outputCacheMetrics.cache_evictions_total || 0),
+      output_cache_persist_enabled: Boolean(outputCacheMetrics.cache_persist_enabled),
+      rate_limit_mode: rateLimitMetrics.rate_limit_mode || "memory",
+      rate_limit_shared_errors_total: Number(rateLimitMetrics.rate_limit_shared_errors_total || 0),
+      rate_limit_shared_hits_total: Number(rateLimitMetrics.rate_limit_shared_hits_total || 0),
+      rate_limit_memory_hits_total: Number(rateLimitMetrics.rate_limit_memory_hits_total || 0),
       feature_disable_layout_pipeline: Boolean(featureFlags.disableLayoutPipeline),
       feature_disable_translation_cache: Boolean(featureFlags.disableTranslationCache),
       feature_disable_strict_quality_gate: Boolean(featureFlags.disableStrictQualityGate),
@@ -532,9 +380,9 @@ export function createJobsRouter(deps) {
     });
   });
 
-  router.get("/:id", requireApiKey, getLimiter, (req, res) => {
+  router.get("/:id", requireApiKey, getLimiter, async (req, res) => {
     bump("jobs_get_total");
-    const job = ensureOwnedJob(req, res);
+    const job = await ensureOwnedJob(req, res);
     if (!job) return;
     return res.status(200).json({
       job_id: job.id,
@@ -542,6 +390,8 @@ export function createJobsRouter(deps) {
       progress_pct: job.progress_pct,
       error_code: job.error_code,
       selected_tier: job.selected_tier,
+      provider_used: job.provider_used || null,
+      provider_mode: job.provider_mode || "MODE_A",
       layout_metrics: job.layout_metrics,
       translation_cache_hit: Boolean(job.translation_cache_hit),
       quality_gate_passed: job.quality_gate_passed,
@@ -553,16 +403,17 @@ export function createJobsRouter(deps) {
     });
   });
 
-  router.get("/:id/events", requireApiKey, getLimiter, (req, res) => {
+  router.get("/:id/events", requireApiKey, getLimiter, async (req, res) => {
     bump("jobs_events_total");
-    const job = ensureOwnedJob(req, res);
+    const job = await ensureOwnedJob(req, res);
     if (!job) return;
-    return res.status(200).json({ job_id: req.params.id, events: job.events || [] });
+    const events = await deps.jobs.getEvents(req.params.id);
+    return res.status(200).json({ job_id: req.params.id, events });
   });
 
   router.get("/:id/output", requireApiKey, getLimiter, async (req, res) => {
     bump("jobs_output_total");
-    const job = ensureOwnedJob(req, res);
+    const job = await ensureOwnedJob(req, res);
     if (!job) return;
     if (job.status !== "READY") return res.status(409).json({ error: "job_not_ready" });
 

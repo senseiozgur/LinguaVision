@@ -1,6 +1,7 @@
 export function createBillingStubAdapter() {
   const charges = new Map();
   const refunds = new Map();
+  const refundFailures = new Set();
 
   return {
     async charge({ request_id, units }) {
@@ -19,6 +20,14 @@ export function createBillingStubAdapter() {
     },
 
     async refund({ request_id }) {
+      if (process.env.BILLING_STUB_FAIL_REFUND === "1") {
+        throw new Error("SIMULATED_REFUND_FAILURE");
+      }
+      if (process.env.BILLING_STUB_FAIL_REFUND_ONCE === "1" && !refundFailures.has(request_id)) {
+        refundFailures.add(request_id);
+        throw new Error("SIMULATED_REFUND_FAILURE_ONCE");
+      }
+
       const refundKey = `refund_${request_id}`;
       const existing = refunds.get(refundKey);
       if (existing) {

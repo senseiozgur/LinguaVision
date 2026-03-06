@@ -21,6 +21,8 @@
       quality_gate_reason: null,
       cost_delta_units: 0,
       ux_hint: null,
+      provider_used: null,
+      provider_mode: input.provider_mode || "MODE_A",
       input_file_path: input.input_file_path,
       output_file_path: null,
       owner_id: input.owner_id || null,
@@ -32,7 +34,12 @@
         billing_request_id: null,
         charged_units: 0,
         charged: false,
-        refunded: false
+        refunded: false,
+        charge_state: "NOT_CHARGED",
+        refund_retry_count: 0,
+        next_refund_retry_at: null,
+        last_refund_error_code: null,
+        refund_last_attempt_at: null
       }
     };
 
@@ -66,5 +73,49 @@
     const job = this.jobs.get(id);
     if (!job) return null;
     return job.events || [];
+  }
+
+  appendJobEvent(id, _ownerId, eventType, meta = null) {
+    const existing = this.jobs.get(id);
+    if (!existing) return null;
+    const now = new Date().toISOString();
+    const next = {
+      ...existing,
+      events: [...(existing.events || []), { state: eventType, at: now, meta }]
+    };
+    this.jobs.set(id, next);
+    return next.events;
+  }
+
+  async claimNextQueued(workerId = null) {
+    for (const [id, job] of this.jobs.entries()) {
+      if (job.status === "QUEUED") {
+        const next = this.update(id, { status: "PROCESSING", progress_pct: 30 });
+        this.appendJobEvent(id, job.owner_id, "JOB_CLAIMED", { worker_id: workerId || "inmem-worker" });
+        return next;
+      }
+    }
+    return null;
+  }
+
+  async claimNextRefundRetry(workerId = null) {
+    const now = Date.now();
+    for (const [id, job] of this.jobs.entries()) {
+      const billing = job.billing || {};
+      const dueAt = billing.next_refund_retry_at ? Date.parse(billing.next_refund_retry_at) : NaN;
+      if (billing.charge_state === "REFUND_PENDING" && Number.isFinite(dueAt) && dueAt <= now) {
+        const next = this.update(id, {
+          billing: {
+            ...billing,
+            charge_state: "REFUND_RETRYING"
+          }
+        });
+        this.appendJobEvent(id, job.owner_id, "BILLING_REFUND_RETRY_CLAIMED", {
+          worker_id: workerId || "inmem-worker"
+        });
+        return next;
+      }
+    }
+    return null;
   }
 }
