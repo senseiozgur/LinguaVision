@@ -4,6 +4,8 @@ import { createDeepLAdapter } from "./deepl.adapter.js";
 import { createGoogleAdapter } from "./google.adapter.js";
 import { createOpenAIAdapter } from "./openai.adapter.js";
 import { createGroqAdapter } from "./groq.adapter.js";
+import { createGoogleTextAdapter } from "./google-text.adapter.js";
+import { createDeepLTextAdapter } from "./deepl-text.adapter.js";
 import { getModeAProviderOrder, getModeBProviderOrder } from "./provider.router.js";
 
 const KNOWN_PROVIDER_ERRORS = new Set([
@@ -39,6 +41,7 @@ export function createProviderAdapter({
   googleLocation = process.env.GOOGLE_LOCATION || "global",
   googleCredentialsPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || "",
   googleServiceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "",
+  googleTranslateApiKey = process.env.GOOGLE_TRANSLATE_API_KEY || "",
   openAiApiKey = process.env.OPENAI_API_KEY || "",
   groqApiKey = process.env.GROQ_API_KEY || ""
 } = {}) {
@@ -63,7 +66,11 @@ export function createProviderAdapter({
   };
   const openAi = createOpenAIAdapter({ apiKey: openAiApiKey });
   const groq = createGroqAdapter({ apiKey: groqApiKey });
+  const googleText = createGoogleTextAdapter({ apiKey: googleTranslateApiKey });
+  const deepLText = createDeepLTextAdapter({ apiKey: deeplApiKey, baseUrl: deeplBaseUrl });
   const modeBProviderRegistry = {
+    deepl_text: deepLText,
+    google_text: googleText,
     openai: openAi,
     groq
   };

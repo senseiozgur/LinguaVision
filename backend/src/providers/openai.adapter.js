@@ -10,6 +10,7 @@ export function createOpenAIAdapter({
   model = process.env.OPENAI_MODEL || "gpt-4o-mini",
   baseUrl = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
   timeoutMs = Number(process.env.OPENAI_TIMEOUT_MS || 30000),
+  debug = process.env.OPENAI_DEBUG === "1",
   fetchImpl = globalThis.fetch
 } = {}) {
   const enabled = Boolean(apiKey);
@@ -55,6 +56,17 @@ export function createOpenAIAdapter({
           clearTimeout(timeout);
 
           if (!res.ok) {
+            const rawBody = await res.text();
+            if (debug) {
+              const reqId = res.headers.get("x-request-id") || null;
+              const retryAfter = res.headers.get("retry-after") || null;
+              const bodySample = rawBody.slice(0, 500);
+              console.warn(
+                `[openai.adapter] non-ok status=${res.status} req_id=${reqId || "n/a"} retry_after=${
+                  retryAfter || "n/a"
+                } body=${bodySample}`
+              );
+            }
             return { ok: false, error: mapOpenAIError(res.status), provider: "openai" };
           }
 
