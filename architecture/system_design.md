@@ -7,6 +7,36 @@ PDF cevirisinde format bozulmasini minimumda tutan, maliyet kontrollu, fallback-
 - Routing/cost karar kaynagi: `research/router_policy.md`
 - Sadece bu dosya + `research/router_policy.md` mimari kanonik kaynaktir.
 
+## Mode-B Current Status (2026-03-09)
+- Branch: `feature/modeb-groq-first-google-deepl`
+- Latest verified checkpoint: `69375a9` (`fix(pdf): stabilize bbox-aware fit flow for readable mode-b output`)
+- Mode-B extraction/rendering line materially improved on real sample (`backend/ornek.pdf`) with sidecar-first extraction and renderer tuning.
+- Output readability is significantly better than earlier fallback/text-wall outputs, but still below full PDFMathTranslate-class natural layout reconstruction.
+
+### Verified Mode-B Milestone Chain (Substance)
+- `2e05a46`: PyMuPDF sidecar extraction boundary added.
+- `dbc0a78`: extraction ordering and noise suppression improved.
+- `7c0ec47`: UTF-8 sidecar IO cleanup.
+- `06cfeab`: body-focused extraction and layout mapping fidelity improved.
+- `9dd641c`: paragraph reconstruction heuristics refined.
+- `7155fff`: role-based block rendering improved readability.
+- `83b731a`: heading/body transition and paragraph typography refinement.
+- `f039bab`: long body block rhythm softened.
+- `15ad352`: overflow/page-fit compaction improved.
+- `69375a9`: bbox-aware fit flow stabilized with measurable readability gain.
+
+### Honest Quality Boundary
+- Fully verified now:
+  - real body-text extraction path is active (fallback path no longer primary in normal sidecar mode)
+  - Mode-B output generation is readable and operational for current test corpus
+  - renderer compaction/fit flow is stable and bounded
+- Improved but imperfect:
+  - advanced natural document feel (high-end typography and nuanced page composition)
+  - full layout fidelity on complex/edge-case PDFs
+- Future work:
+  - higher-fidelity layout reconstruction and stronger coordinate-aware paragraph composition
+  - broader real-document benchmark corpus and quality gating
+
 ## Current Implemented Baseline (2026-03-04)
 - Jobs API: `POST /jobs`, `POST /jobs/:id/run`, `GET /jobs/:id`, `GET /jobs/:id/events`, `GET /jobs/:id/output`
   evidence: `backend/src/routes/jobs.routes.js`
