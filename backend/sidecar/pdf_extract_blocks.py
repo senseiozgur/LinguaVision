@@ -23,6 +23,15 @@ def normalize_key(value: str) -> str:
 
 
 @dataclass
+class LineItem:
+    text: str
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+
+
+@dataclass
 class RawBlock:
     page_idx: int
     page_height: float
@@ -30,33 +39,116 @@ class RawBlock:
     y0: float
     x1: float
     y1: float
-    lines: list[str]
+    lines: list[LineItem]
 
 
-def lines_to_paragraphs(lines: list[str]) -> list[str]:
+def _split_long_paragraph(text: str, max_len: int = 460) -> list[str]:
+    value = normalize_text(text)
+    if not value or len(value) <= max_len:
+        return [value] if value else []
+    out: list[str] = []
+    cursor = 0
+    while cursor < len(value):
+        remain = len(value) - cursor
+        if remain <= max_len:
+            out.append(value[cursor:].strip())
+            break
+        target = cursor + max_len
+        boundary = -1
+        for m in re.finditer(r"[.;:]\s+", value[cursor : min(len(value), cursor + max_len + 120)]):
+            boundary = cursor + m.end()
+        if boundary <= cursor:
+            ws = value.rfind(" ", cursor + 220, target + 1)
+            boundary = ws if ws > cursor else target
+        out.append(value[cursor:boundary].strip())
+        cursor = boundary
+        while cursor < len(value) and value[cursor].isspace():
+            cursor += 1
+    return [p for p in out if p]
+
+
+def lines_to_paragraph_items(lines: list[LineItem]) -> list[dict]:
     if not lines:
         return []
-    paragraphs: list[str] = []
-    current = ""
+    heights = [max(1.0, line.y1 - line.y0) for line in lines]
+    median_height = sorted(heights)[len(heights) // 2] if heights else 10.0
+    gap_threshold = max(4.0, median_height * 0.75)
+
+    paragraphs: list[dict] = []
+    current_text = ""
+    para_x0 = None
+    para_y0 = None
+    para_x1 = None
+    para_y1 = None
+    prev_line = None
+
+    def flush_current():
+        nonlocal current_text, para_x0, para_y0, para_x1, para_y1
+        if not current_text:
+            return
+        for part in _split_long_paragraph(current_text):
+            paragraphs.append(
+                {
+                    "text": part,
+                    "x0": para_x0 if para_x0 is not None else 50.0,
+                    "y0": para_y0 if para_y0 is not None else 50.0,
+                    "x1": para_x1 if para_x1 is not None else 550.0,
+                    "y1": para_y1 if para_y1 is not None else 70.0,
+                }
+            )
+        current_text = ""
+        para_x0 = para_y0 = para_x1 = para_y1 = None
+
     for line in lines:
-        clean = normalize_text(line)
+        clean = normalize_text(line.text)
         if not clean:
-            if current:
-                paragraphs.append(current)
-                current = ""
+            flush_current()
+            prev_line = line
             continue
-        if not current:
-            current = clean
-            continue
-        if current.endswith("-") and re.match(
-            r"^[a-z\u00e7\u011f\u0131\u00f6\u015f\u00fc\u00e4\u00df]", clean, flags=re.IGNORECASE
-        ):
-            current = current[:-1] + clean
+
+        heading_like = bool(re.match(r"^\d+\.\s+", clean))
+        citation_like = bool(re.match(r"^(vgl\.|siehe|see|cf\.)\s+", clean, flags=re.IGNORECASE))
+        break_before = False
+        if current_text:
+            if re.fullmatch(r"\d+\.", current_text) and clean[:1].isalpha():
+                break_before = False
+            else:
+                if heading_like:
+                    break_before = True
+                elif citation_like and len(current_text) > 120:
+                    break_before = True
+                elif prev_line is not None:
+                    vertical_gap = line.y0 - prev_line.y1
+                    indent_delta = abs(line.x0 - (prev_line.x0 if prev_line else line.x0))
+                    if vertical_gap > gap_threshold:
+                        break_before = True
+                    elif indent_delta > 24 and clean[:1].isupper():
+                        break_before = True
+        if break_before:
+            flush_current()
+
+        if not current_text:
+            current_text = clean
+            para_x0, para_y0, para_x1, para_y1 = line.x0, line.y0, line.x1, line.y1
         else:
-            current = f"{current} {clean}"
-    if current:
-        paragraphs.append(current)
-    return [p for p in paragraphs if p]
+            if current_text.endswith("-") and re.match(
+                r"^[a-z\u00e7\u011f\u0131\u00f6\u015f\u00fc\u00e4\u00df]", clean, flags=re.IGNORECASE
+            ):
+                current_text = current_text[:-1] + clean
+            else:
+                current_text = f"{current_text} {clean}"
+            para_x0 = min(para_x0, line.x0)
+            para_y0 = min(para_y0, line.y0)
+            para_x1 = max(para_x1, line.x1)
+            para_y1 = max(para_y1, line.y1)
+        prev_line = line
+
+    flush_current()
+    return paragraphs
+
+
+def lines_to_paragraphs(lines: list[LineItem]) -> list[str]:
+    return [item.get("text", "") for item in lines_to_paragraph_items(lines) if item.get("text")]
 
 
 def fallback_block():
@@ -89,12 +181,21 @@ def extract_blocks(path: str):
             lines = block.get("lines", [])
             if not lines:
                 continue
-            line_parts = []
+            line_parts: list[LineItem] = []
             for line in lines:
                 spans = line.get("spans", [])
                 span_text = "".join(str(span.get("text", "")) for span in spans)
                 if normalize_text(span_text):
-                    line_parts.append(span_text)
+                    lx0, ly0, lx1, ly1 = line.get("bbox", block.get("bbox", [50, 50, 550, 70]))
+                    line_parts.append(
+                        LineItem(
+                            text=span_text,
+                            x0=float(lx0),
+                            y0=float(ly0),
+                            x1=float(lx1),
+                            y1=float(ly1),
+                        )
+                    )
             if not line_parts:
                 continue
             x0, y0, x1, y1 = block.get("bbox", [50, 50, 550, 70])
@@ -166,46 +267,51 @@ def extract_blocks(path: str):
     for b in raw:
         if suppress_preamble is b:
             continue
-        paragraphs = lines_to_paragraphs(b.lines)
-        if not paragraphs:
+        paragraph_items = lines_to_paragraph_items(b.lines)
+        if not paragraph_items:
             continue
-        text = normalize_text(" ".join(paragraphs))
-        if not text:
-            continue
-        lowered = text.lower()
-        # Suppress recurring page labels and institutional margin noise that can dominate body coverage.
-        if re.search(r"\bseite\s+\d+\b", lowered):
-            continue
-        if len(text) <= 96 and re.search(r"\bwissenschaftliche\s+dienste\b", lowered):
-            continue
-        if len(text) <= 120 and re.search(r"\bfachbereich\s+wd\s*\d+\b", lowered):
-            continue
-        if re.fullmatch(r"\*{3,}", text):
-            continue
-        key = normalize_key(text)
-        near_top = b.y0 <= 80
-        near_bottom = (b.page_height - b.y1) <= 40
-        if key in suppress_keys and (near_top or near_bottom):
-            continue
-        page_order = page_orders.get(b.page_idx, 0) + 1
-        page_orders[b.page_idx] = page_order
-        blocks_out.append(
-            {
-                "index": running_index,
-                "page": b.page_idx + 1,
-                "block_order": page_order,
-                "paragraph_group": paragraph_group,
-                "bbox_hint": {
-                    "x": b.x0,
-                    "y": max(0.0, b.page_height - b.y0),
-                    "w": max(1.0, b.x1 - b.x0),
-                    "h": max(1.0, b.y1 - b.y0),
-                },
-                "text": text,
-            }
-        )
-        running_index += 1
-        paragraph_group += 1
+        for paragraph in paragraph_items:
+            text = normalize_text(paragraph.get("text", ""))
+            if not text:
+                continue
+            lowered = text.lower()
+            # Suppress recurring page labels and institutional margin noise that can dominate body coverage.
+            if re.search(r"\bseite\s+\d+\b", lowered):
+                continue
+            if len(text) <= 96 and re.search(r"\bwissenschaftliche\s+dienste\b", lowered):
+                continue
+            if len(text) <= 120 and re.search(r"\bfachbereich\s+wd\s*\d+\b", lowered):
+                continue
+            if re.fullmatch(r"\*{3,}", text):
+                continue
+            key = normalize_key(text)
+            px0 = float(paragraph.get("x0", b.x0))
+            py0 = float(paragraph.get("y0", b.y0))
+            px1 = float(paragraph.get("x1", b.x1))
+            py1 = float(paragraph.get("y1", b.y1))
+            near_top = py0 <= 80
+            near_bottom = (b.page_height - py1) <= 40
+            if key in suppress_keys and (near_top or near_bottom):
+                continue
+            page_order = page_orders.get(b.page_idx, 0) + 1
+            page_orders[b.page_idx] = page_order
+            blocks_out.append(
+                {
+                    "index": running_index,
+                    "page": b.page_idx + 1,
+                    "block_order": page_order,
+                    "paragraph_group": paragraph_group,
+                    "bbox_hint": {
+                        "x": px0,
+                        "y": max(0.0, b.page_height - py0),
+                        "w": max(1.0, px1 - px0),
+                        "h": max(1.0, py1 - py0),
+                    },
+                    "text": text,
+                }
+            )
+            running_index += 1
+            paragraph_group += 1
 
     if not blocks_out:
         blocks_out = [fallback_block()]
