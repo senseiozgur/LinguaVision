@@ -41,6 +41,19 @@ function detectFontRef(text) {
   return /[^\x00-\x7F]/.test(String(text || "")) ? "F2" : "F1";
 }
 
+function blockRole(block) {
+  const role = String(block?.block_role || "").toLowerCase();
+  if (role === "title" || role === "heading" || role === "citation") return role;
+  return "body";
+}
+
+function roleStyle(role) {
+  if (role === "title") return { fontSize: 13, wrap: 62, beforeGap: 14, afterGap: 14, lineHeight: 15 };
+  if (role === "heading") return { fontSize: 12, wrap: 72, beforeGap: 10, afterGap: 10, lineHeight: 14 };
+  if (role === "citation") return { fontSize: 10, wrap: 96, beforeGap: 6, afterGap: 8, lineHeight: 12 };
+  return { fontSize: 11, wrap: 90, beforeGap: 6, afterGap: 8, lineHeight: 13 };
+}
+
 function buildPageContentFromBlocks(blocks, { top = 790, minY = 70, lineHeight = 13 } = {}) {
   const rows = ["BT"];
   let cursorY = top;
@@ -49,10 +62,15 @@ function buildPageContentFromBlocks(blocks, { top = 790, minY = 70, lineHeight =
   for (const block of blocks) {
     const raw = String(block.translated_text || block.source_text || "").trim();
     if (!raw) continue;
-    const lines = wrapLine(raw, 90);
+    const role = blockRole(block);
+    const style = roleStyle(role);
+    const lines = wrapLine(raw, style.wrap);
     const fontRef = detectFontRef(raw);
     if (Number.isFinite(block?.bbox_hint?.y)) {
-      cursorY = Math.min(cursorY, block.bbox_hint.y);
+      const anchored = Math.min(cursorY - style.beforeGap, block.bbox_hint.y);
+      cursorY = Number.isFinite(anchored) ? anchored : cursorY - style.beforeGap;
+    } else {
+      cursorY -= style.beforeGap;
     }
     for (let i = 0; i < lines.length; i++) {
       if (cursorY < minY) {
@@ -60,12 +78,12 @@ function buildPageContentFromBlocks(blocks, { top = 790, minY = 70, lineHeight =
         break;
       }
       const x = Number.isFinite(block?.bbox_hint?.x) ? block.bbox_hint.x : 50;
-      rows.push(`/${fontRef} 11 Tf`);
+      rows.push(`/${fontRef} ${style.fontSize} Tf`);
       rows.push(`1 0 0 1 ${Math.max(40, x)} ${Math.max(minY, cursorY)} Tm`);
       rows.push(`(${escapePdfText(sanitizePdfText(lines[i]))}) Tj`);
-      cursorY -= lineHeight;
+      cursorY -= style.lineHeight || lineHeight;
     }
-    cursorY -= 6;
+    cursorY -= style.afterGap;
     if (overflow) break;
   }
 

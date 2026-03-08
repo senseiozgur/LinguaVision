@@ -53,9 +53,27 @@ function preserveHeadingPrefix(sourceText, translatedPart) {
   const translated = String(translatedPart || "").trim();
   const m = source.match(/^(\d+\.)\s+/);
   if (!m) return translated;
-  if (/^\d+\.\s+/.test(translated)) return translated;
   if (!translated) return source;
-  return `${m[1]} ${translated}`;
+  let body = translated;
+  const sameNumber = m[1].replace(".", "\\.");
+  body = body.replace(new RegExp(`\\b${sameNumber}\\s+`, "g"), "").trim();
+  if (/^\d+\.\s+/.test(body)) return body;
+  if (body.length > 140) {
+    const cut = body.search(/[;:.!?]\s/);
+    if (cut > 28 && cut < 140) body = body.slice(0, cut + 1).trim();
+    else body = body.slice(0, 140).trim();
+  }
+  return `${m[1]} ${body}`.trim();
+}
+
+function detectBlockRole(sourceText) {
+  const text = String(sourceText || "").trim();
+  if (!text) return "body";
+  if (/^kurzinformation\b/i.test(text)) return "title";
+  if (/^\d+\.\s+/.test(text)) return "heading";
+  if (/^(vgl\.|siehe|see|cf\.)\s+/i.test(text)) return "citation";
+  if (text.length <= 72 && !/[.!?]$/.test(text) && /^[A-ZÄÖÜ]/.test(text)) return "heading";
+  return "body";
 }
 
 export function buildModeBLayoutModel({ blocks, chunks, translatedChunks }) {
@@ -92,7 +110,8 @@ export function buildModeBLayoutModel({ blocks, chunks, translatedChunks }) {
       block_order: Number.isFinite(block.block_order) ? block.block_order : index + 1,
       bbox_hint: block.bbox_hint || { x: 50, y: 780 - index * 16, w: 500, h: 14 },
       source_text: String(block.text || ""),
-      translated_text: translatedByBlock.get(Number.isFinite(block.index) ? block.index : index) || String(block.text || "")
+      translated_text: translatedByBlock.get(Number.isFinite(block.index) ? block.index : index) || String(block.text || ""),
+      block_role: detectBlockRole(String(block.text || ""))
     }))
     .sort((a, b) => (a.page - b.page) || (a.block_order - b.block_order));
 
