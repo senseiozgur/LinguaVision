@@ -99,6 +99,22 @@ function adaptiveStyle(style, role, cursorY, minY) {
   };
 }
 
+function deriveBboxAwareStyle(style, role, bboxHint) {
+  const bboxW = Number.isFinite(bboxHint?.w) ? bboxHint.w : null;
+  if (!bboxW || bboxW < 120) return style;
+  const widthChars = Math.floor((bboxW - 8) / Math.max(4.5, style.fontSize * 0.56));
+  const minWrap = role === "heading" ? 28 : role === "title" ? 24 : role === "citation" ? 38 : 34;
+  const maxWrap = role === "heading" ? 86 : role === "title" ? 74 : role === "citation" ? 120 : 108;
+  const baseWrap = style.wrap;
+  const rawDelta = (widthChars || baseWrap) - baseWrap;
+  const delta = Math.max(-2, Math.min(10, rawDelta));
+  const nextWrap = Math.max(minWrap, Math.min(maxWrap, baseWrap + delta));
+  return {
+    ...style,
+    wrap: nextWrap
+  };
+}
+
 function buildWrappedLines(raw, role, style, { includeParagraphBreaks = true } = {}) {
   const baseParts = splitRenderedParagraphs(raw);
   const lines = [];
@@ -126,6 +142,28 @@ function cleanTransitionText(raw, role, activeSection) {
   return text;
 }
 
+function fitStyleToBlockBox(style, lines, role, bboxHint, rawText) {
+  const bboxH = Number.isFinite(bboxHint?.h) ? bboxHint.h : null;
+  if (!bboxH || bboxH < 28 || !(role === "body" || role === "citation")) return { style, lines, applied: false };
+
+  let nextStyle = { ...style };
+  let nextLines = lines;
+  const budget = Math.max(2, Math.floor((bboxH - 2) / Math.max(9, nextStyle.lineHeight)));
+  if (nextLines.length <= budget) return { style: nextStyle, lines: nextLines, applied: false };
+
+  // Bounded fit loop: only tighten line-height and gaps, keep paragraph boundaries.
+  for (let i = 0; i < 2 && nextLines.length > budget; i++) {
+    nextStyle = {
+      ...nextStyle,
+      lineHeight: Math.max(9, nextStyle.lineHeight - 1),
+      beforeGap: Math.max(2, nextStyle.beforeGap - 1),
+      afterGap: Math.max(3, nextStyle.afterGap - 1)
+    };
+    nextLines = buildWrappedLines(rawText, role, nextStyle);
+  }
+  return { style: nextStyle, lines: nextLines, applied: nextLines.length > budget };
+}
+
 function buildPageContentFromBlocks(blocks, { top = 798, minY = 56, lineHeight = 13 } = {}) {
   const rows = ["BT"];
   let cursorY = top;
@@ -142,10 +180,16 @@ function buildPageContentFromBlocks(blocks, { top = 798, minY = 56, lineHeight =
     raw = cleanTransitionText(raw, role, activeSection);
     if (!raw) continue;
     let style = adaptiveStyle(roleStyle(role), role, cursorY, minY);
+    style = deriveBboxAwareStyle(style, role, block?.bbox_hint);
     let lines = buildWrappedLines(raw, role, style);
+    const fitted = fitStyleToBlockBox(style, lines, role, block?.bbox_hint, raw);
+    style = fitted.style;
+    lines = fitted.lines;
+    const bboxFitApplied = Boolean(fitted.applied);
     const remaining = Math.max(0, cursorY - minY);
     const estimate = style.beforeGap + style.afterGap + lines.length * style.lineHeight;
-    if ((role === "body" || role === "citation") && estimate > remaining) {
+    // Single fit strategy: bbox-fit first, remaining-space compaction only if bbox-fit not applied.
+    if (!bboxFitApplied && (role === "body" || role === "citation") && estimate > remaining) {
       style = {
         ...style,
         wrap: Math.min(104, style.wrap + 8),
@@ -163,7 +207,7 @@ function buildPageContentFromBlocks(blocks, { top = 798, minY = 56, lineHeight =
           beforeGap: Math.max(2, style.beforeGap - 1),
           afterGap: Math.max(3, style.afterGap - 1)
         };
-        lines = buildWrappedLines(raw, role, style, { includeParagraphBreaks: false });
+        lines = buildWrappedLines(raw, role, style);
       }
     }
     const fontRef = detectFontRef(raw);
