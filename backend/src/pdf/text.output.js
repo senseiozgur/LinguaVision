@@ -5,6 +5,22 @@ function escapePdfText(value) {
     .replace(/\)/g, "\\)");
 }
 
+function sanitizePdfText(value) {
+  const mapped = String(value || "")
+    .replace(/\u00A7/g, "Section ")
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201C\u201D]/g, "\"")
+    .replace(/[\u2013\u2014]/g, "-")
+    .replace(/\u2026/g, "...")
+    .replace(/\u00A0/g, " ");
+  return mapped
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function wrapLine(text, width = 90) {
   const value = String(text || "").trim();
   if (!value) return [""];
@@ -35,7 +51,6 @@ function buildPageContentFromBlocks(blocks, { top = 790, minY = 70, lineHeight =
     if (!raw) continue;
     const lines = wrapLine(raw, 90);
     const fontRef = detectFontRef(raw);
-
     if (Number.isFinite(block?.bbox_hint?.y)) {
       cursorY = Math.min(cursorY, block.bbox_hint.y);
     }
@@ -47,7 +62,7 @@ function buildPageContentFromBlocks(blocks, { top = 790, minY = 70, lineHeight =
       const x = Number.isFinite(block?.bbox_hint?.x) ? block.bbox_hint.x : 50;
       rows.push(`/${fontRef} 11 Tf`);
       rows.push(`1 0 0 1 ${Math.max(40, x)} ${Math.max(minY, cursorY)} Tm`);
-      rows.push(`(${escapePdfText(lines[i])}) Tj`);
+      rows.push(`(${escapePdfText(sanitizePdfText(lines[i]))}) Tj`);
       cursorY -= lineHeight;
     }
     cursorY -= 6;

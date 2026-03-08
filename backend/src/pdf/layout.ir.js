@@ -1,28 +1,70 @@
-function splitEvenly(text, parts) {
-  const normalized = String(text || "").trim();
-  if (parts <= 1) return [normalized];
-  if (!normalized) return Array.from({ length: parts }, () => "");
+function seekBoundary(text, target, fallbackMax = 40) {
+  const min = Math.max(1, target - fallbackMax);
+  const max = Math.min(text.length - 1, target + fallbackMax);
+  for (let i = target; i <= max; i++) {
+    if (/\s/.test(text[i])) return i;
+  }
+  for (let i = target; i >= min; i--) {
+    if (/\s/.test(text[i])) return i;
+  }
+  return target;
+}
+
+function splitBySourceLengths(translatedText, sourceTexts) {
+  const normalized = String(translatedText || "").trim();
+  const count = Array.isArray(sourceTexts) ? sourceTexts.length : 0;
+  if (count <= 1) return [normalized];
+  if (!normalized) return Array.from({ length: count }, () => "");
+
+  const sourceLengths = sourceTexts.map((t) => Math.max(1, String(t || "").trim().length));
+  const totalWeight = sourceLengths.reduce((a, b) => a + b, 0);
+  if (!Number.isFinite(totalWeight) || totalWeight <= 0) {
+    return Array.from({ length: count }, (_, i) => {
+      const avg = Math.floor(normalized.length / count);
+      const from = i * avg;
+      const to = i === count - 1 ? normalized.length : (i + 1) * avg;
+      return normalized.slice(from, to).trim();
+    });
+  }
 
   const out = [];
   let cursor = 0;
-  for (let i = 0; i < parts; i++) {
-    const remainingParts = parts - i;
+  for (let i = 0; i < count; i++) {
+    const remainingParts = count - i;
     const remainingChars = normalized.length - cursor;
-    const target = Math.max(1, Math.floor(remainingChars / remainingParts));
-    let next = cursor + target;
-    if (i < parts - 1) {
-      const ws = normalized.indexOf(" ", next);
-      if (ws > next && ws - next < 20) next = ws;
-    } else {
-      next = normalized.length;
+    if (remainingParts <= 1) {
+      out.push(normalized.slice(cursor).trim());
+      break;
     }
-    out.push(normalized.slice(cursor, next).trim());
-    cursor = Math.min(normalized.length, next + 1);
+    const remainingWeight = sourceLengths.slice(i).reduce((a, b) => a + b, 0);
+    const portion = sourceLengths[i] / remainingWeight;
+    let target = cursor + Math.max(1, Math.round(remainingChars * portion));
+    target = Math.min(normalized.length - 1, Math.max(cursor + 1, target));
+    const boundary = seekBoundary(normalized, target, 48);
+    out.push(normalized.slice(cursor, boundary).trim());
+    cursor = Math.min(normalized.length, boundary + 1);
   }
+  while (out.length < count) out.push("");
   return out;
 }
 
+function preserveHeadingPrefix(sourceText, translatedPart) {
+  const source = String(sourceText || "").trim();
+  const translated = String(translatedPart || "").trim();
+  const m = source.match(/^(\d+\.)\s+/);
+  if (!m) return translated;
+  if (/^\d+\.\s+/.test(translated)) return translated;
+  if (!translated) return source;
+  return `${m[1]} ${translated}`;
+}
+
 export function buildModeBLayoutModel({ blocks, chunks, translatedChunks }) {
+  const sourceByIndex = new Map(
+    (blocks || []).map((block, index) => [
+      Number.isFinite(block.index) ? block.index : index,
+      String(block.text || "")
+    ])
+  );
   const byChunkIndex = new Map();
   for (const item of translatedChunks || []) {
     byChunkIndex.set(item.index, String(item.text || ""));
@@ -33,11 +75,12 @@ export function buildModeBLayoutModel({ blocks, chunks, translatedChunks }) {
     const source = Array.isArray(chunk.source_indexes) ? chunk.source_indexes : [];
     if (!source.length) continue;
     const translated = byChunkIndex.get(chunk.index) ?? String(chunk.text || "");
-    const parts = splitEvenly(translated, source.length);
+    const sourceTexts = source.map((idx) => sourceByIndex.get(idx) || "");
+    const parts = splitBySourceLengths(translated, sourceTexts);
     for (let i = 0; i < source.length; i++) {
       const key = source[i];
       const existing = translatedByBlock.get(key);
-      const next = parts[i] || "";
+      const next = preserveHeadingPrefix(sourceTexts[i], parts[i] || "");
       translatedByBlock.set(key, existing ? `${existing}\n${next}`.trim() : next.trim());
     }
   }

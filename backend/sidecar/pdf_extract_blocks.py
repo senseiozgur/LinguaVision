@@ -172,6 +172,16 @@ def extract_blocks(path: str):
         text = normalize_text(" ".join(paragraphs))
         if not text:
             continue
+        lowered = text.lower()
+        # Suppress recurring page labels and institutional margin noise that can dominate body coverage.
+        if re.search(r"\bseite\s+\d+\b", lowered):
+            continue
+        if len(text) <= 96 and re.search(r"\bwissenschaftliche\s+dienste\b", lowered):
+            continue
+        if len(text) <= 120 and re.search(r"\bfachbereich\s+wd\s*\d+\b", lowered):
+            continue
+        if re.fullmatch(r"\*{3,}", text):
+            continue
         key = normalize_key(text)
         near_top = b.y0 <= 80
         near_bottom = (b.page_height - b.y1) <= 40
