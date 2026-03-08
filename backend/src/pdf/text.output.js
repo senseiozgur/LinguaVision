@@ -48,23 +48,52 @@ function blockRole(block) {
 }
 
 function roleStyle(role) {
-  if (role === "title") return { fontSize: 13, wrap: 62, beforeGap: 14, afterGap: 14, lineHeight: 15 };
-  if (role === "heading") return { fontSize: 12, wrap: 72, beforeGap: 10, afterGap: 10, lineHeight: 14 };
-  if (role === "citation") return { fontSize: 10, wrap: 96, beforeGap: 6, afterGap: 8, lineHeight: 12 };
-  return { fontSize: 11, wrap: 90, beforeGap: 6, afterGap: 8, lineHeight: 13 };
+  if (role === "title") return { fontSize: 13, wrap: 60, beforeGap: 16, afterGap: 16, lineHeight: 16 };
+  if (role === "heading") return { fontSize: 12, wrap: 68, beforeGap: 14, afterGap: 14, lineHeight: 15 };
+  if (role === "citation") return { fontSize: 10, wrap: 92, beforeGap: 8, afterGap: 10, lineHeight: 12 };
+  return { fontSize: 11, wrap: 84, beforeGap: 9, afterGap: 11, lineHeight: 14 };
+}
+
+function splitRenderedParagraphs(raw) {
+  return String(raw || "")
+    .split(/\n{2,}/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function cleanTransitionText(raw, role, activeSection) {
+  let text = String(raw || "").trim();
+  if (!text) return text;
+  if ((role === "body" || role === "citation") && activeSection) {
+    const prefix = new RegExp(`^${activeSection}\\.\\s+`, "i");
+    text = text.replace(prefix, "").trim();
+    const mid = new RegExp(`([A-Za-z])\\s+${activeSection}\\.\\s+([A-Z])`, "g");
+    text = text.replace(mid, "$1. $2");
+  }
+  return text;
 }
 
 function buildPageContentFromBlocks(blocks, { top = 790, minY = 70, lineHeight = 13 } = {}) {
   const rows = ["BT"];
   let cursorY = top;
   let overflow = false;
+  let activeSection = null;
 
   for (const block of blocks) {
-    const raw = String(block.translated_text || block.source_text || "").trim();
-    if (!raw) continue;
     const role = blockRole(block);
+    let raw = String(block.translated_text || block.source_text || "").trim();
+    const headingMatch = raw.match(/^(\d+)\.\s+/);
+    if (role === "heading" && headingMatch) {
+      activeSection = headingMatch[1];
+    }
+    raw = cleanTransitionText(raw, role, activeSection);
+    if (!raw) continue;
     const style = roleStyle(role);
-    const lines = wrapLine(raw, style.wrap);
+    const paragraphParts = splitRenderedParagraphs(raw);
+    const lines = paragraphParts.flatMap((part, idx) => {
+      const wrapped = wrapLine(part, style.wrap);
+      return idx < paragraphParts.length - 1 ? [...wrapped, ""] : wrapped;
+    });
     const fontRef = detectFontRef(raw);
     if (Number.isFinite(block?.bbox_hint?.y)) {
       const anchored = Math.min(cursorY - style.beforeGap, block.bbox_hint.y);

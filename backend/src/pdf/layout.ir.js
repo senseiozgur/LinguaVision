@@ -56,6 +56,7 @@ function preserveHeadingPrefix(sourceText, translatedPart) {
   if (!translated) return source;
   let body = translated;
   const sameNumber = m[1].replace(".", "\\.");
+  body = body.replace(/\b\d+\.\s+/g, "").trim();
   body = body.replace(new RegExp(`\\b${sameNumber}\\s+`, "g"), "").trim();
   if (/^\d+\.\s+/.test(body)) return body;
   if (body.length > 140) {
@@ -114,6 +115,24 @@ export function buildModeBLayoutModel({ blocks, chunks, translatedChunks }) {
       block_role: detectBlockRole(String(block.text || ""))
     }))
     .sort((a, b) => (a.page - b.page) || (a.block_order - b.block_order));
+
+  // Smooth heading -> body transitions by dropping duplicated section prefixes in body blocks.
+  const sectionByPage = new Map();
+  for (const block of normalizedBlocks) {
+    const role = String(block.block_role || "body");
+    const text = String(block.translated_text || "").trim();
+    const sectionMatch = text.match(/^(\d+)\.\s+/);
+    if (role === "heading" && sectionMatch) {
+      sectionByPage.set(block.page, sectionMatch[1]);
+      continue;
+    }
+    const activeSection = sectionByPage.get(block.page);
+    if (!activeSection || role === "heading") continue;
+    const pref = new RegExp(`^${activeSection}\\.\\s+`, "i");
+    if (pref.test(text)) {
+      block.translated_text = text.replace(pref, "").trim();
+    }
+  }
 
   const pagesMap = new Map();
   for (const block of normalizedBlocks) {
