@@ -48,7 +48,9 @@ def lines_to_paragraphs(lines: list[str]) -> list[str]:
         if not current:
             current = clean
             continue
-        if current.endswith("-") and re.match(r"^[a-zçğıöşüäöüß]", clean):
+        if current.endswith("-") and re.match(
+            r"^[a-z\u00e7\u011f\u0131\u00f6\u015f\u00fc\u00e4\u00df]", clean, flags=re.IGNORECASE
+        ):
             current = current[:-1] + clean
         else:
             current = f"{current} {clean}"
@@ -202,6 +204,10 @@ def extract_blocks(path: str):
 
 
 def main():
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
     if len(sys.argv) < 2:
         print(json.dumps({"error": "missing_pdf_path"}))
         return 2

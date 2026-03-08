@@ -62,6 +62,11 @@ function extractBySidecar(inputBuffer) {
   try {
     const run = spawnSync(pythonCmd, [SIDECAR_SCRIPT, tmpFile], {
       encoding: "utf8",
+      env: {
+        ...process.env,
+        PYTHONIOENCODING: "utf-8",
+        PYTHONUTF8: "1"
+      },
       maxBuffer: 10 * 1024 * 1024
     });
     if (run.error) throw run.error;
