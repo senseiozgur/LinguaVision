@@ -85,6 +85,35 @@ function splitLongBodyParagraphs(text, maxChars = 260) {
   return out.filter(Boolean);
 }
 
+function adaptiveStyle(style, role, cursorY, minY) {
+  if (role !== "body" && role !== "citation") return style;
+  const pressure = cursorY - minY;
+  if (pressure > 210) return style;
+  const compact = pressure > 140 ? 1 : 2;
+  return {
+    ...style,
+    wrap: Math.min(96, style.wrap + compact * 4),
+    lineHeight: Math.max(11, style.lineHeight - compact),
+    beforeGap: Math.max(4, style.beforeGap - compact),
+    afterGap: Math.max(5, style.afterGap - compact)
+  };
+}
+
+function buildWrappedLines(raw, role, style, { includeParagraphBreaks = true } = {}) {
+  const baseParts = splitRenderedParagraphs(raw);
+  const lines = [];
+  for (let p = 0; p < baseParts.length; p++) {
+    const part = baseParts[p];
+    const splitMax = style.wrap >= 90 ? 320 : 260;
+    const subParts = role === "body" ? splitLongBodyParagraphs(part, splitMax) : [part];
+    for (let s = 0; s < subParts.length; s++) {
+      lines.push(...wrapLine(subParts[s], style.wrap));
+    }
+    if (includeParagraphBreaks && p < baseParts.length - 1) lines.push("");
+  }
+  return lines;
+}
+
 function cleanTransitionText(raw, role, activeSection) {
   let text = String(raw || "").trim();
   if (!text) return text;
@@ -97,7 +126,7 @@ function cleanTransitionText(raw, role, activeSection) {
   return text;
 }
 
-function buildPageContentFromBlocks(blocks, { top = 790, minY = 70, lineHeight = 13 } = {}) {
+function buildPageContentFromBlocks(blocks, { top = 798, minY = 56, lineHeight = 13 } = {}) {
   const rows = ["BT"];
   let cursorY = top;
   let overflow = false;
@@ -112,15 +141,31 @@ function buildPageContentFromBlocks(blocks, { top = 790, minY = 70, lineHeight =
     }
     raw = cleanTransitionText(raw, role, activeSection);
     if (!raw) continue;
-    const style = roleStyle(role);
-    let paragraphParts = splitRenderedParagraphs(raw);
-    if (role === "body") {
-      paragraphParts = paragraphParts.flatMap((part) => splitLongBodyParagraphs(part, 260));
+    let style = adaptiveStyle(roleStyle(role), role, cursorY, minY);
+    let lines = buildWrappedLines(raw, role, style);
+    const remaining = Math.max(0, cursorY - minY);
+    const estimate = style.beforeGap + style.afterGap + lines.length * style.lineHeight;
+    if ((role === "body" || role === "citation") && estimate > remaining) {
+      style = {
+        ...style,
+        wrap: Math.min(104, style.wrap + 8),
+        lineHeight: Math.max(10, style.lineHeight - 2),
+        beforeGap: Math.max(3, style.beforeGap - 2),
+        afterGap: Math.max(4, style.afterGap - 2)
+      };
+      lines = buildWrappedLines(raw, role, style);
+      const availableLines = Math.max(0, Math.floor((cursorY - minY) / Math.max(1, style.lineHeight)));
+      if (lines.length > availableLines + 1) {
+        style = {
+          ...style,
+          wrap: Math.min(112, style.wrap + 8),
+          lineHeight: Math.max(9, style.lineHeight - 1),
+          beforeGap: Math.max(2, style.beforeGap - 1),
+          afterGap: Math.max(3, style.afterGap - 1)
+        };
+        lines = buildWrappedLines(raw, role, style, { includeParagraphBreaks: false });
+      }
     }
-    const lines = paragraphParts.flatMap((part, idx) => {
-      const wrapped = wrapLine(part, style.wrap);
-      return idx < paragraphParts.length - 1 ? [...wrapped, ""] : wrapped;
-    });
     const fontRef = detectFontRef(raw);
     if (Number.isFinite(block?.bbox_hint?.y)) {
       const anchored = Math.min(cursorY - style.beforeGap, block.bbox_hint.y);
@@ -130,7 +175,7 @@ function buildPageContentFromBlocks(blocks, { top = 790, minY = 70, lineHeight =
     }
     for (let i = 0; i < lines.length; i++) {
       if (cursorY < minY) {
-        overflow = true;
+        if (lines.length - i > 2) overflow = true;
         break;
       }
       const baseX = Number.isFinite(block?.bbox_hint?.x) ? block.bbox_hint.x : 50;
