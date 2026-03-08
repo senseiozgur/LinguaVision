@@ -51,7 +51,7 @@ function roleStyle(role) {
   if (role === "title") return { fontSize: 13, wrap: 60, beforeGap: 16, afterGap: 16, lineHeight: 16 };
   if (role === "heading") return { fontSize: 12, wrap: 68, beforeGap: 14, afterGap: 14, lineHeight: 15 };
   if (role === "citation") return { fontSize: 10, wrap: 92, beforeGap: 8, afterGap: 10, lineHeight: 12 };
-  return { fontSize: 11, wrap: 84, beforeGap: 9, afterGap: 11, lineHeight: 14 };
+  return { fontSize: 11, wrap: 84, beforeGap: 8, afterGap: 9, lineHeight: 13 };
 }
 
 function splitRenderedParagraphs(raw) {
@@ -59,6 +59,30 @@ function splitRenderedParagraphs(raw) {
     .split(/\n{2,}/)
     .map((s) => s.trim())
     .filter(Boolean);
+}
+
+function splitLongBodyParagraphs(text, maxChars = 260) {
+  const value = String(text || "").trim();
+  if (!value || value.length <= maxChars) return [value];
+  const out = [];
+  let rest = value;
+  while (rest.length > maxChars) {
+    const window = rest.slice(0, maxChars + 90);
+    let cut = -1;
+    const punct = [...window.matchAll(/[.;:!?]\s+/g)];
+    if (punct.length) {
+      const last = punct[punct.length - 1];
+      cut = last.index + last[0].length;
+    }
+    if (cut < 120) {
+      const ws = rest.lastIndexOf(" ", maxChars);
+      cut = ws > 100 ? ws : maxChars;
+    }
+    out.push(rest.slice(0, cut).trim());
+    rest = rest.slice(cut).trim();
+  }
+  if (rest) out.push(rest);
+  return out.filter(Boolean);
 }
 
 function cleanTransitionText(raw, role, activeSection) {
@@ -89,7 +113,10 @@ function buildPageContentFromBlocks(blocks, { top = 790, minY = 70, lineHeight =
     raw = cleanTransitionText(raw, role, activeSection);
     if (!raw) continue;
     const style = roleStyle(role);
-    const paragraphParts = splitRenderedParagraphs(raw);
+    let paragraphParts = splitRenderedParagraphs(raw);
+    if (role === "body") {
+      paragraphParts = paragraphParts.flatMap((part) => splitLongBodyParagraphs(part, 260));
+    }
     const lines = paragraphParts.flatMap((part, idx) => {
       const wrapped = wrapLine(part, style.wrap);
       return idx < paragraphParts.length - 1 ? [...wrapped, ""] : wrapped;
@@ -106,7 +133,10 @@ function buildPageContentFromBlocks(blocks, { top = 790, minY = 70, lineHeight =
         overflow = true;
         break;
       }
-      const x = Number.isFinite(block?.bbox_hint?.x) ? block.bbox_hint.x : 50;
+      const baseX = Number.isFinite(block?.bbox_hint?.x) ? block.bbox_hint.x : 50;
+      const isContinuation = i > 0 && lines[i - 1] !== "";
+      const continuationIndent = (role === "body" || role === "citation") && isContinuation ? 8 : 0;
+      const x = baseX + continuationIndent;
       rows.push(`/${fontRef} ${style.fontSize} Tf`);
       rows.push(`1 0 0 1 ${Math.max(40, x)} ${Math.max(minY, cursorY)} Tm`);
       rows.push(`(${escapePdfText(sanitizePdfText(lines[i]))}) Tj`);
