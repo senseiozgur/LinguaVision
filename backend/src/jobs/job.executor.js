@@ -6,6 +6,7 @@ import { chunkTextBlocks } from "../pdf/chunker.js";
 import { buildLayoutAwareTextPdf } from "../pdf/text.output.js";
 import { buildModeBLayoutModel } from "../pdf/layout.ir.js";
 import { buildOutputCacheKey, shortCacheKey } from "../cache/cache.key.js";
+import { createEngineAdapter } from "../pdf/engine.adapter.js";
 
 const REFUND_RETRY_SCHEDULE_SECONDS = [60, 300, 1800, 7200, 43200, 86400];
 
@@ -38,6 +39,15 @@ function deriveBillingErrorCode(err) {
   return toSafeBillingErrorCode(err);
 }
 
+function normalizeEngineErrorCode(code) {
+  const value = String(code || "").toUpperCase();
+  if (value === "PROVIDER_TIMEOUT") return value;
+  if (value === "PROVIDER_RATE_LIMIT") return value;
+  if (value === "PROVIDER_AUTH_ERROR") return value;
+  if (value === "PROVIDER_UPSTREAM_ERROR") return value;
+  return "PROVIDER_UPSTREAM_ERROR";
+}
+
 export function createJobExecutor(deps) {
   const featureFlags = deps.featureFlags || {
     disableLayoutPipeline: false,
@@ -46,6 +56,7 @@ export function createJobExecutor(deps) {
   };
   const stats = deps.stats || {};
   deps.stats = stats;
+  const engineAdapter = deps.engineAdapter || createEngineAdapter();
 
   function bump(key) {
     stats[key] = (stats[key] || 0) + 1;
@@ -235,8 +246,13 @@ export function createJobExecutor(deps) {
     };
     const outputCache = deps.outputCache || null;
     const providerFamily = executionMode === "MODE_B" ? cacheKeyOptions.modeBProviderOrder : cacheKeyOptions.modeAProviderOrder;
+    const modeBEngine = String(process.env.LV_MODE_B_ENGINE || "custom").toLowerCase() === "external" ? "external" : "custom";
     const outputStrategyVersion =
-      executionMode === "MODE_B" ? cacheKeyOptions.modeBOutputVersion : cacheKeyOptions.modeAOutputVersion;
+      executionMode === "MODE_B"
+        ? modeBEngine === "external"
+          ? `${cacheKeyOptions.modeBOutputVersion}_external`
+          : cacheKeyOptions.modeBOutputVersion
+        : cacheKeyOptions.modeAOutputVersion;
     const cacheBypass =
       Boolean(simulateFailBeforeProvider) ||
       Boolean(simulateFailTier) ||
@@ -380,6 +396,116 @@ export function createJobExecutor(deps) {
           }
         }
 
+        if (modeBEngine === "external") {
+          await deps.jobs.appendJobEvent(job.id, job.owner_id, "ENGINE_SELECTED", {
+            worker_id: workerId || null,
+            request_id: runRequestId,
+            mode: executionMode,
+            engine: "babeldoc"
+          });
+          await deps.jobs.appendJobEvent(job.id, job.owner_id, "ENGINE_RUN_STARTED", {
+            worker_id: workerId || null,
+            request_id: runRequestId,
+            mode: executionMode,
+            engine: "babeldoc"
+          });
+          const engineStartedAt = Date.now();
+          firstProviderRequestAttempted = true;
+          const engineResult = await engineAdapter.translatePdf({
+            inputBuffer: inBytes,
+            sourceLang: job.source_lang || null,
+            targetLang: job.target_lang || null,
+            options: {
+              jobId: job.id,
+              requestId: runRequestId
+            }
+          });
+
+          if (!engineResult?.ok || !engineResult?.outputBuffer) {
+            lastError = normalizeEngineErrorCode(engineResult?.error);
+            await deps.jobs.appendJobEvent(job.id, job.owner_id, "ENGINE_RUN_FAILED", {
+              worker_id: workerId || null,
+              request_id: runRequestId,
+              mode: executionMode,
+              engine: "babeldoc",
+              error_code: lastError,
+              duration_ms: Date.now() - engineStartedAt
+            });
+          } else {
+            const providerUsed = String(engineResult.engine_used || "babeldoc");
+            bumpProviderUsage(providerUsed);
+            const layoutMetrics = {
+              reflow_strategy: "mode_b_engine_external",
+              page_count: Number(engineResult.metrics?.page_count || 0),
+              block_count: null,
+              overflow_count: Number(engineResult.metrics?.overflow_pages || 0),
+              overflow_flag: Boolean(engineResult.metrics?.overflow_flag),
+              font_fallback: null
+            };
+            const outPath = await deps.storage.saveOutput(job.id, engineResult.outputBuffer);
+            if (outputCache && !cacheBypass) {
+              outputCache.set(cacheKey, {
+                outputBuffer: engineResult.outputBuffer,
+                layoutMetrics,
+                meta: {
+                  mode: executionMode,
+                  provider_used: providerUsed,
+                  selected_tier: null,
+                  quality_gate_passed: null,
+                  cost_delta_units: 0,
+                  cache_key_version: cacheDescriptor.keyVersion
+                }
+              });
+            }
+            await deps.jobs.appendJobEvent(job.id, job.owner_id, "ENGINE_RUN_SUCCEEDED", {
+              worker_id: workerId || null,
+              request_id: runRequestId,
+              mode: executionMode,
+              engine: "babeldoc",
+              page_count: layoutMetrics.page_count,
+              overflow_flag: layoutMetrics.overflow_flag,
+              duration_ms: Date.now() - engineStartedAt
+            });
+            await deps.jobs.appendJobEvent(job.id, job.owner_id, "MODE_B_OUTPUT_GENERATED", {
+              worker_id: workerId || null,
+              request_id: runRequestId,
+              provider: providerUsed,
+              chunk_count: null,
+              page_count: layoutMetrics.page_count,
+              block_count: null,
+              overflow_flag: layoutMetrics.overflow_flag
+            });
+            await deps.jobs.update(job.id, {
+              status: "READY",
+              progress_pct: 100,
+              output_file_path: outPath,
+              provider_used: providerUsed,
+              selected_tier: null,
+              layout_metrics: layoutMetrics,
+              translation_cache_hit: false,
+              quality_gate_passed: null,
+              quality_gate_reason: null,
+              cost_delta_units: 0,
+              ux_hint: null,
+              billing: {
+                ...job.billing,
+                request_id: runRequestId,
+                billing_request_id: chargeResult.billing_request_id,
+                charged_units: Number(chargeResult.charged_units || unitsToCharge),
+                charged: true,
+                refunded: false,
+                charge_state: "CHARGED",
+                next_refund_retry_at: null,
+                last_refund_error_code: null
+              }
+            });
+            await deps.jobs.appendJobEvent(job.id, job.owner_id, "JOB_READY", {
+              selected_tier: null
+            });
+            bump("jobs_ready_total");
+            return { ok: true };
+          }
+        } else {
         const extractionStartedAt = Date.now();
         await deps.jobs.appendJobEvent(job.id, job.owner_id, "TEXT_EXTRACTION_STARTED", {
           worker_id: workerId || null,
@@ -538,6 +664,7 @@ export function createJobExecutor(deps) {
           });
           bump("jobs_ready_total");
           return { ok: true };
+        }
         }
       }
 
