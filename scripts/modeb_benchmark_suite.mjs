@@ -11,7 +11,12 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, "..");
 const backendDir = path.join(repoRoot, "backend");
 const pdfStatsPy = path.join(__dirname, "pdf_stats.py");
-const corpus = ["ornek.pdf", "ornek_1.pdf", "ornek_2.pdf"];
+const defaultCorpus = ["ornek.pdf", "ornek_1.pdf", "ornek_2.pdf"];
+const corpus = (process.env.LV_BENCH_FILES || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+const benchmarkCorpus = corpus.length ? corpus : defaultCorpus;
 
 const port = Number(process.env.LV_BENCH_PORT || 8798);
 const baseUrl = `http://127.0.0.1:${port}`;
@@ -41,6 +46,35 @@ function detectFallback(blocks) {
   return (blocks || []).some((b) => String(b.text || "").includes("No extractable text found"));
 }
 
+function readBackendEnvSubset() {
+  const envPath = path.join(backendDir, ".env");
+  const out = {};
+  if (!fs.existsSync(envPath)) return out;
+  const allow = new Set([
+    "DEEPL_API_KEY",
+    "GOOGLE_TRANSLATE_API_KEY",
+    "GOOGLE_TRANSLATE_BASE_URL",
+    "OPENAI_API_KEY",
+    "OPENAI_MODEL",
+    "GROQ_API_KEY",
+    "GROQ_MODEL"
+  ]);
+  const raw = fs.readFileSync(envPath, "utf8");
+  for (const line of raw.split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t || t.startsWith("#") || !t.includes("=")) continue;
+    const idx = t.indexOf("=");
+    const key = t.slice(0, idx).trim();
+    let value = t.slice(idx + 1).trim();
+    if (!allow.has(key)) continue;
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    if (value) out[key] = value;
+  }
+  return out;
+}
+
 function pythonStats(pdfPath) {
   const py = process.env.LV_PDF_EXTRACTOR_PYTHON || "python";
   const run = spawnSync(py, [pdfStatsPy, pdfPath], {
@@ -60,7 +94,7 @@ async function ensureDir(dirPath) {
 
 async function inspectCorpus() {
   const items = [];
-  for (const name of corpus) {
+  for (const name of benchmarkCorpus) {
     const full = path.join(backendDir, name);
     const stat = await fsp.stat(full);
     const bytes = await fsp.readFile(full);
@@ -214,6 +248,8 @@ async function main() {
     await fsp.writeFile(backup, JSON.stringify(previousBaseline, null, 2), "utf8");
   }
   const baselineByFile = Object.fromEntries((previousBaseline?.files || []).map((x) => [x.file_name, x]));
+  const envSubset = readBackendEnvSubset();
+  const effectiveOrder = process.env.LV_MODE_B_PROVIDER_ORDER || "deepl_text,google_text";
 
   const server = spawn(process.execPath, ["src/server.js"], {
     cwd: backendDir,
@@ -221,14 +257,21 @@ async function main() {
       ...process.env,
       PORT: String(port),
       LV_API_KEY: apiKey,
-      LV_MODE_B_PROVIDER_ORDER: process.env.LV_MODE_B_PROVIDER_ORDER || "deepl_text,google_text",
+      LV_MODE_B_PROVIDER_ORDER: effectiveOrder,
       BILLING_PROVIDER: process.env.BILLING_PROVIDER || "stub",
       OUTPUT_CACHE_PERSIST: "0",
       OUTPUT_CACHE_MAX: "1",
       TRANSLATION_CACHE_PERSIST: "0",
       DISABLE_TRANSLATION_CACHE: "1",
       LV_STORAGE_PROVIDER: process.env.LV_STORAGE_PROVIDER || "local",
-      LV_DISABLE_EMBEDDED_WORKER: "0"
+      LV_DISABLE_EMBEDDED_WORKER: "0",
+      DEEPL_API_KEY: process.env.DEEPL_API_KEY || envSubset.DEEPL_API_KEY || "",
+      GOOGLE_TRANSLATE_API_KEY: process.env.GOOGLE_TRANSLATE_API_KEY || envSubset.GOOGLE_TRANSLATE_API_KEY || "",
+      GOOGLE_TRANSLATE_BASE_URL: process.env.GOOGLE_TRANSLATE_BASE_URL || envSubset.GOOGLE_TRANSLATE_BASE_URL || "",
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY || envSubset.OPENAI_API_KEY || "",
+      OPENAI_MODEL: process.env.OPENAI_MODEL || envSubset.OPENAI_MODEL || "",
+      GROQ_API_KEY: process.env.GROQ_API_KEY || envSubset.GROQ_API_KEY || "",
+      GROQ_MODEL: process.env.GROQ_MODEL || envSubset.GROQ_MODEL || ""
     },
     stdio: ["ignore", "pipe", "pipe"]
   });
@@ -316,7 +359,7 @@ async function main() {
       run_id: runId,
       generated_at: new Date().toISOString(),
       provider_mode: "mode_b",
-      preferred_provider_order: process.env.LV_MODE_B_PROVIDER_ORDER || "deepl_text,google_text",
+      preferred_provider_order: effectiveOrder,
       files,
       totals: {
         pass: files.filter((x) => x.gate_status === "PASS").length,
