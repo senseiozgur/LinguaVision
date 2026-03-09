@@ -259,7 +259,7 @@ async function main() {
     const failJob = await createFailRes.json();
 
     const failRunRes = await apiFetch(
-      `${baseUrl}/jobs/${failJob.job_id}/run?simulate_fail_tiers=standard,premium,economy`,
+      `${baseUrl}/jobs/${failJob.job_id}/run?simulate_fail_tiers=standard,premium,economy&simulate_fail_code=PROVIDER_TIMEOUT`,
       { method: "POST" }
     );
     assert(failRunRes.status === 202, `all-fail run expected 202 got ${failRunRes.status}`);
@@ -318,7 +318,7 @@ async function main() {
     assert(asyncFailCreateRes.status === 201, `async fail create expected 201 got ${asyncFailCreateRes.status}`);
     const asyncFailJob = await asyncFailCreateRes.json();
     const asyncFailRunRes = await apiFetch(
-      `${baseUrl}/jobs/${asyncFailJob.job_id}/run?async=1&worker_delay_ms=200&simulate_fail_tiers=standard,premium,economy`,
+      `${baseUrl}/jobs/${asyncFailJob.job_id}/run?async=1&worker_delay_ms=200&simulate_fail_tiers=standard,premium,economy&simulate_fail_code=PROVIDER_TIMEOUT`,
       { method: "POST" }
     );
     assert(asyncFailRunRes.status === 202, `async fail run expected 202 got ${asyncFailRunRes.status}`);

@@ -274,7 +274,8 @@ export function createJobsRouter(deps) {
 
     const simulateFailTier = (req.query?.simulate_fail_tier || "").toString().trim() || null;
     const simulateFailTiers = normalizeCsvParam(req.query?.simulate_fail_tiers);
-    const simulateFailCode = (req.query?.simulate_fail_code || "").toString().trim() || "PROVIDER_TIMEOUT";
+    const simulateFailCodeRaw = (req.query?.simulate_fail_code || "").toString().trim();
+    const simulateFailCode = simulateFailCodeRaw ? simulateFailCodeRaw : null;
     const simulateRetryOnceTiers = normalizeCsvParam(req.query?.simulate_retry_once_tiers);
     const simulateLayoutMissingAnchorCount = Math.max(
       0,
