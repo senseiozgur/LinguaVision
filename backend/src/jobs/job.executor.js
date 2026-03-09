@@ -428,6 +428,7 @@ export function createJobExecutor(deps) {
               request_id: runRequestId,
               mode: executionMode,
               engine: "babeldoc",
+              engine_config: engineResult?.metrics?.engine_config || null,
               error_code: lastError,
               duration_ms: Date.now() - engineStartedAt
             });
@@ -462,6 +463,7 @@ export function createJobExecutor(deps) {
               request_id: runRequestId,
               mode: executionMode,
               engine: "babeldoc",
+              engine_config: engineResult?.metrics?.engine_config || null,
               page_count: layoutMetrics.page_count,
               overflow_flag: layoutMetrics.overflow_flag,
               duration_ms: Date.now() - engineStartedAt
