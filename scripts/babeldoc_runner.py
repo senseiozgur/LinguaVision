@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import json
 import os
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -30,6 +31,7 @@ async def run_translate(args):
     from babeldoc.format.pdf.high_level import async_translate
     from babeldoc.format.pdf.translation_config import WatermarkOutputMode
     from babeldoc.format.pdf.translation_config import TranslationConfig
+    from babeldoc.format.pdf.document_il.midend import il_translator_llm_only as il_translator_llm_only_module
     from babeldoc.translator.translator import OpenAITranslator
     from babeldoc.translator.translator import set_translate_rate_limiter
     from babeldoc.format.pdf.document_il.midend import il_translator as il_translator_module
@@ -81,6 +83,18 @@ async def run_translate(args):
         send_temperature=True,
     )
     set_translate_rate_limiter(2)
+
+    # Sanitize Chinese hardcoded example in BabelDOC LLM-only prompt template.
+    try:
+        prompt_template = il_translator_llm_only_module.PROMPT_TEMPLATE.template
+        prompt_template = prompt_template.replace(
+            "<style id='2'>你好</style>，世界！",
+            "<style id='2'>translated text</style>, translated world!",
+        )
+        il_translator_llm_only_module.PROMPT_TEMPLATE.template = prompt_template
+    except Exception:
+        # Keep translation path resilient if internals change.
+        pass
 
     # Product mode: suppress user-facing content-filter hint insertion in output PDFs.
     content_filter_hint_calls = 0
@@ -146,9 +160,46 @@ async def run_translate(args):
 
         doc = pymupdf.open(str(output_path))
         page_count = doc.page_count
+        visible_char_count = 0
+        visible_cjk_count = 0
+        for i in range(doc.page_count):
+            page = doc.load_page(i)
+            text = page.get_text("text") or ""
+            visible_char_count += len(text)
+            for seg in page.get_texttrace():
+                if seg.get("type", None) == 3:
+                    continue
+                chars = []
+                for ch in seg.get("chars", []):
+                    if ch and isinstance(ch[0], int):
+                        chars.append(chr(ch[0]))
+                if chars:
+                    visible_cjk_count += len(
+                        re.findall(r"[\u4e00-\u9fff]", "".join(chars))
+                    )
         doc.close()
     except Exception:
         page_count = 0
+        visible_char_count = 0
+        visible_cjk_count = 0
+
+    visible_cjk_ratio = (
+        float(visible_cjk_count) / float(visible_char_count)
+        if visible_char_count > 0
+        else 0.0
+    )
+    non_cjk_target = str(target_lang or "").strip().lower() not in {
+        "zh",
+        "zh-cn",
+        "zh-tw",
+        "zh-hans",
+        "zh-hant",
+        "ja",
+        "ko",
+    }
+    cjk_residue_warning = bool(non_cjk_target and visible_cjk_count > 0)
+    if cjk_residue_warning:
+        print("ENGINE_WARNING visible_cjk_residue_detected=true", file=sys.stderr)
 
     return {
         "ok": True,
@@ -156,6 +207,13 @@ async def run_translate(args):
         "metrics": {
             "page_count": int(page_count),
             "overflow_flag": False,
+            "target_lang": target_lang,
+            "provider": "openai_compatible",
+            "model": str(args.openai_model or "").strip(),
+            "output_cjk_count": int(visible_cjk_count),
+            "output_cjk_ratio": round(float(visible_cjk_ratio), 6),
+            "output_visible_char_count": int(visible_char_count),
+            "cjk_residue_warning": cjk_residue_warning,
             "content_filter_hint_triggered_count": int(content_filter_hint_calls),
             "content_filter_hint_suppressed": bool(args.disable_content_filter_hint),
             "engine_config": effective_config
