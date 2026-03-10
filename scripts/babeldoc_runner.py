@@ -4,6 +4,7 @@ import json
 import os
 import re
 import shutil
+import statistics as py_statistics
 import sys
 from pathlib import Path
 
@@ -35,6 +36,7 @@ async def run_translate(args):
     from babeldoc.translator.translator import OpenAITranslator
     from babeldoc.translator.translator import set_translate_rate_limiter
     from babeldoc.format.pdf.document_il.midend import il_translator as il_translator_module
+    from babeldoc.format.pdf.document_il.midend import typesetting as typesetting_module
 
     input_path = Path(args.input).resolve()
     output_path = Path(args.output).resolve()
@@ -62,6 +64,16 @@ async def run_translate(args):
         "short_line_split_factor": float(args.short_line_split_factor),
         "disable_content_filter_hint": bool(args.disable_content_filter_hint),
     }
+    repetition_max_10gram = int(
+        str(os.getenv("LV_BABELDOC_REPETITION_MAX_10GRAM", "5")).strip() or "5"
+    )
+    effective_config["repetition_max_10gram"] = int(repetition_max_10gram)
+    scale_harmonization_patch_active = str(
+        os.getenv("LV_BABELDOC_PATCH_SCALE_HARMONIZATION", "1")
+    ).strip().lower() not in {"0", "false", "no", "off"}
+    effective_config["patch_scale_harmonization"] = bool(
+        scale_harmonization_patch_active
+    )
     print(
         f"ENGINE_CONFIG {json.dumps(effective_config, ensure_ascii=False)}",
         file=sys.stderr
@@ -99,6 +111,60 @@ async def run_translate(args):
     # Product mode: suppress user-facing content-filter hint insertion in output PDFs.
     content_filter_hint_calls = 0
     original_add_content_filter_hint = il_translator_module.ILTranslator.add_content_filter_hint
+    original_post_translate_paragraph = il_translator_module.ILTranslator.post_translate_paragraph
+    original_multimode = typesetting_module.statistics.multimode
+    scale_stats = {
+        "paragraph_scale_count": 0,
+        "paragraph_scale_min": None,
+        "paragraph_scale_median": None,
+        "paragraph_scale_p10": None,
+        "paragraph_scale_p25": None,
+    }
+    repetition_guard = {
+        "checked": 0,
+        "suspect_count": 0,
+        "fallback_triggered": 0,
+        "max_10gram_repeat_seen": 0,
+        "samples": [],
+    }
+
+    def _max_10gram_repeat(text: str) -> int:
+        words = re.findall(r"\w+", str(text or "").lower(), flags=re.UNICODE)
+        if len(words) < 10:
+            return 0
+        counter = {}
+        for i in range(len(words) - 9):
+            key = " ".join(words[i : i + 10])
+            counter[key] = counter.get(key, 0) + 1
+        return int(max(counter.values()) if counter else 0)
+
+    def _percentile(sorted_values, p):
+        if not sorted_values:
+            return None
+        if len(sorted_values) == 1:
+            return float(sorted_values[0])
+        k = (len(sorted_values) - 1) * p
+        f = int(k)
+        c = min(f + 1, len(sorted_values) - 1)
+        if f == c:
+            return float(sorted_values[f])
+        d0 = sorted_values[f] * (c - k)
+        d1 = sorted_values[c] * (k - f)
+        return float(d0 + d1)
+
+    def patched_multimode(values):
+        vals = [float(x) for x in list(values) if x is not None]
+        if vals:
+            vals.sort()
+            scale_stats["paragraph_scale_count"] = int(len(vals))
+            scale_stats["paragraph_scale_min"] = float(vals[0])
+            scale_stats["paragraph_scale_median"] = float(py_statistics.median(vals))
+            scale_stats["paragraph_scale_p10"] = _percentile(vals, 0.10)
+            scale_stats["paragraph_scale_p25"] = _percentile(vals, 0.25)
+            # Return a robust center so BabelDOC's min(multimode(...)) clamp
+            # does not collapse all paragraphs to an outlier small scale.
+            return [scale_stats["paragraph_scale_median"]]
+        return original_multimode(values)
 
     def patched_add_content_filter_hint(self, page, paragraph):
         nonlocal content_filter_hint_calls
@@ -111,7 +177,51 @@ async def run_translate(args):
             return
         return original_add_content_filter_hint(self, page, paragraph)
 
+    def patched_post_translate_paragraph(
+        self, paragraph, tracker, translate_input, translated_text: str
+    ):
+        # If we already forced LLM-only fallback for this paragraph, allow exactly one pass.
+        if getattr(paragraph, "_lv_repeat_guard_allow_once", False):
+            paragraph._lv_repeat_guard_allow_once = False
+            return original_post_translate_paragraph(
+                self, paragraph, tracker, translate_input, translated_text
+            )
+
+        repeat_score = _max_10gram_repeat(translated_text)
+        repetition_guard["checked"] += 1
+        repetition_guard["max_10gram_repeat_seen"] = max(
+            int(repetition_guard["max_10gram_repeat_seen"]), int(repeat_score)
+        )
+        if repeat_score > repetition_max_10gram:
+            repetition_guard["suspect_count"] += 1
+            repetition_guard["fallback_triggered"] += 1
+            if len(repetition_guard["samples"]) < 5:
+                repetition_guard["samples"].append(
+                    {
+                        "paragraph_debug_id": getattr(paragraph, "debug_id", None),
+                        "repeat_score": int(repeat_score),
+                        "text_len": len(str(translated_text or "")),
+                    }
+                )
+            paragraph._lv_repeat_guard_allow_once = True
+            print(
+                f"ENGINE_WARNING repetition_guard_triggered=true repeat_score={repeat_score} threshold={repetition_max_10gram} paragraph_debug_id={getattr(paragraph, 'debug_id', '')}",
+                file=sys.stderr,
+            )
+            raise ValueError(
+                f"repetition_guard_triggered repeat_score={repeat_score} threshold={repetition_max_10gram}"
+            )
+
+        return original_post_translate_paragraph(
+            self, paragraph, tracker, translate_input, translated_text
+        )
+
     il_translator_module.ILTranslator.add_content_filter_hint = patched_add_content_filter_hint
+    il_translator_module.ILTranslator.post_translate_paragraph = (
+        patched_post_translate_paragraph
+    )
+    if scale_harmonization_patch_active:
+        typesetting_module.statistics.multimode = patched_multimode
 
     babeldoc_high_level.init()
     layout_model = DocLayoutModel.load_onnx()
@@ -143,6 +253,10 @@ async def run_translate(args):
                 break
     finally:
         il_translator_module.ILTranslator.add_content_filter_hint = original_add_content_filter_hint
+        il_translator_module.ILTranslator.post_translate_paragraph = (
+            original_post_translate_paragraph
+        )
+        typesetting_module.statistics.multimode = original_multimode
 
     if result is None:
         return {"ok": False, "error": "engine_no_result"}
@@ -216,6 +330,22 @@ async def run_translate(args):
             "cjk_residue_warning": cjk_residue_warning,
             "content_filter_hint_triggered_count": int(content_filter_hint_calls),
             "content_filter_hint_suppressed": bool(args.disable_content_filter_hint),
+            "repetition_guard_checked_count": int(repetition_guard["checked"]),
+            "repetition_guard_suspect_count": int(repetition_guard["suspect_count"]),
+            "repetition_guard_fallback_triggered": int(
+                repetition_guard["fallback_triggered"]
+            ),
+            "repetition_guard_max_10gram_repeat_seen": int(
+                repetition_guard["max_10gram_repeat_seen"]
+            ),
+            "repetition_guard_threshold": int(repetition_max_10gram),
+            "repetition_guard_samples": repetition_guard["samples"],
+            "global_scale_patch_active": bool(scale_harmonization_patch_active),
+            "paragraph_scale_count": int(scale_stats["paragraph_scale_count"] or 0),
+            "paragraph_scale_min": scale_stats["paragraph_scale_min"],
+            "paragraph_scale_median": scale_stats["paragraph_scale_median"],
+            "paragraph_scale_p10": scale_stats["paragraph_scale_p10"],
+            "paragraph_scale_p25": scale_stats["paragraph_scale_p25"],
             "engine_config": effective_config
         },
     }
