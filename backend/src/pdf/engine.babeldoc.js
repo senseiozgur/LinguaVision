@@ -116,7 +116,14 @@ export function createBabelDocEngine() {
                 disable_rich_text_translate: parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", false),
                 split_short_lines: parseBooleanEnv("LV_BABELDOC_SPLIT_SHORT_LINES", false),
                 short_line_split_factor: Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8),
-                disable_content_filter_hint: parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true)
+                disable_content_filter_hint: parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true),
+                tls_mode: String(process.env.LV_BABELDOC_CA_BUNDLE || "").trim() ? "ca_bundle" : (parseBooleanEnv("LV_BABELDOC_INSECURE_TLS", false) ? "insecure" : "default"),
+                ca_bundle_path: String(process.env.LV_BABELDOC_CA_BUNDLE || "").trim() || null,
+                insecure_tls: parseBooleanEnv("LV_BABELDOC_INSECURE_TLS", false),
+                allow_source_fallback_on_repetition: parseBooleanEnv(
+                  "LV_BABELDOC_ALLOW_SOURCE_FALLBACK_ON_REPETITION",
+                  false
+                )
               }
             }
           };
@@ -131,6 +138,13 @@ export function createBabelDocEngine() {
         const splitShortLines = parseBooleanEnv("LV_BABELDOC_SPLIT_SHORT_LINES", false);
         const shortLineSplitFactor = Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8);
         const disableContentFilterHint = parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true);
+        const caBundlePath = String(process.env.LV_BABELDOC_CA_BUNDLE || "").trim();
+        const insecureTls = parseBooleanEnv("LV_BABELDOC_INSECURE_TLS", false);
+        const tlsMode = caBundlePath ? "ca_bundle" : (insecureTls ? "insecure" : "default");
+        const allowSourceFallbackOnRepetition = parseBooleanEnv(
+          "LV_BABELDOC_ALLOW_SOURCE_FALLBACK_ON_REPETITION",
+          false
+        );
         const effectiveConfig = {
           lang_in: resolvedSourceLang,
           lang_out: resolvedTargetLang,
@@ -139,7 +153,11 @@ export function createBabelDocEngine() {
           disable_rich_text_translate: disableRichTextTranslate,
           split_short_lines: splitShortLines,
           short_line_split_factor: Number.isFinite(shortLineSplitFactor) ? shortLineSplitFactor : 0.8,
-          disable_content_filter_hint: disableContentFilterHint
+          disable_content_filter_hint: disableContentFilterHint,
+          tls_mode: tlsMode,
+          ca_bundle_path: caBundlePath || null,
+          insecure_tls: insecureTls,
+          allow_source_fallback_on_repetition: allowSourceFallbackOnRepetition
         };
         console.log("BABELDOC_ENGINE_CONFIG", JSON.stringify({
           job_id: String(options.jobId || ""),
@@ -250,7 +268,14 @@ export function createBabelDocEngine() {
               disable_rich_text_translate: parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", false),
               split_short_lines: parseBooleanEnv("LV_BABELDOC_SPLIT_SHORT_LINES", false),
               short_line_split_factor: Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8),
-              disable_content_filter_hint: parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true)
+              disable_content_filter_hint: parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true),
+              tls_mode: String(process.env.LV_BABELDOC_CA_BUNDLE || "").trim() ? "ca_bundle" : (parseBooleanEnv("LV_BABELDOC_INSECURE_TLS", false) ? "insecure" : "default"),
+              ca_bundle_path: String(process.env.LV_BABELDOC_CA_BUNDLE || "").trim() || null,
+              insecure_tls: parseBooleanEnv("LV_BABELDOC_INSECURE_TLS", false),
+              allow_source_fallback_on_repetition: parseBooleanEnv(
+                "LV_BABELDOC_ALLOW_SOURCE_FALLBACK_ON_REPETITION",
+                false
+              )
             }
           }
         };

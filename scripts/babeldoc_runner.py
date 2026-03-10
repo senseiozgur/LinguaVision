@@ -33,6 +33,7 @@ async def run_translate(args):
     from babeldoc.format.pdf.translation_config import WatermarkOutputMode
     from babeldoc.format.pdf.translation_config import TranslationConfig
     from babeldoc.format.pdf.document_il.midend import il_translator_llm_only as il_translator_llm_only_module
+    from babeldoc.translator import translator as babeldoc_translator_module
     from babeldoc.translator.translator import OpenAITranslator
     from babeldoc.translator.translator import set_translate_rate_limiter
     from babeldoc.format.pdf.document_il.midend import il_translator as il_translator_module
@@ -68,12 +69,50 @@ async def run_translate(args):
         str(os.getenv("LV_BABELDOC_REPETITION_MAX_10GRAM", "5")).strip() or "5"
     )
     effective_config["repetition_max_10gram"] = int(repetition_max_10gram)
+    allow_source_fallback_on_repetition = (
+        str(
+            os.getenv("LV_BABELDOC_ALLOW_SOURCE_FALLBACK_ON_REPETITION", "0")
+        ).strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
+    effective_config["allow_source_fallback_on_repetition"] = bool(
+        allow_source_fallback_on_repetition
+    )
     scale_harmonization_patch_active = str(
         os.getenv("LV_BABELDOC_PATCH_SCALE_HARMONIZATION", "1")
     ).strip().lower() not in {"0", "false", "no", "off"}
     effective_config["patch_scale_harmonization"] = bool(
         scale_harmonization_patch_active
     )
+
+    ca_bundle_raw = str(os.getenv("LV_BABELDOC_CA_BUNDLE", "")).strip()
+    insecure_tls = (
+        str(os.getenv("LV_BABELDOC_INSECURE_TLS", "0")).strip().lower()
+        in {"1", "true", "yes", "on"}
+    )
+    tls_mode = "default"
+    tls_verify = True
+    ca_bundle_path = None
+    if ca_bundle_raw:
+        ca_candidate = Path(ca_bundle_raw).expanduser().resolve()
+        if not ca_candidate.exists():
+            return {
+                "ok": False,
+                "error": f"invalid_ca_bundle_path: {ca_candidate}",
+            }
+        tls_mode = "ca_bundle"
+        ca_bundle_path = str(ca_candidate)
+        tls_verify = ca_bundle_path
+        os.environ["SSL_CERT_FILE"] = ca_bundle_path
+        os.environ["REQUESTS_CA_BUNDLE"] = ca_bundle_path
+        os.environ["CURL_CA_BUNDLE"] = ca_bundle_path
+    elif insecure_tls:
+        tls_mode = "insecure"
+        tls_verify = False
+        os.environ["PYTHONHTTPSVERIFY"] = "0"
+    effective_config["tls_mode"] = tls_mode
+    effective_config["ca_bundle_path"] = ca_bundle_path
+    effective_config["insecure_tls"] = bool(insecure_tls)
     print(
         f"ENGINE_CONFIG {json.dumps(effective_config, ensure_ascii=False)}",
         file=sys.stderr
@@ -83,17 +122,30 @@ async def run_translate(args):
     if not api_key:
         return {"ok": False, "error": "OPENAI_API_KEY missing"}
 
-    translator = OpenAITranslator(
-        lang_in=source_lang,
-        lang_out=target_lang,
-        model=args.openai_model,
-        base_url=os.getenv("OPENAI_BASE_URL") or None,
-        api_key=api_key,
-        ignore_cache=True,
-        enable_json_mode_if_requested=False,
-        send_dashscope_header=False,
-        send_temperature=True,
-    )
+    original_httpx_client_factory = babeldoc_translator_module.httpx.Client
+
+    class LvPatchedHttpxClient(original_httpx_client_factory):
+        def __init__(self, *f_args, **f_kwargs):
+            if "verify" not in f_kwargs:
+                f_kwargs["verify"] = tls_verify
+            super().__init__(*f_args, **f_kwargs)
+
+    babeldoc_translator_module.httpx.Client = LvPatchedHttpxClient
+    try:
+        translator = OpenAITranslator(
+            lang_in=source_lang,
+            lang_out=target_lang,
+            model=args.openai_model,
+            base_url=os.getenv("OPENAI_BASE_URL") or None,
+            api_key=api_key,
+            ignore_cache=True,
+            enable_json_mode_if_requested=False,
+            send_dashscope_header=False,
+            send_temperature=True,
+        )
+    except Exception:
+        babeldoc_translator_module.httpx.Client = original_httpx_client_factory
+        raise
     set_translate_rate_limiter(2)
 
     # Sanitize Chinese hardcoded example in BabelDOC LLM-only prompt template.
@@ -123,8 +175,12 @@ async def run_translate(args):
     repetition_guard = {
         "checked": 0,
         "suspect_count": 0,
-        "fallback_triggered": 0,
+        "repetition_retry_count": 0,
+        "repetition_retry_success_count": 0,
+        "source_fallback_count": 0,
+        "hard_fail_count": 0,
         "max_10gram_repeat_seen": 0,
+        "hard_fail_paragraphs": [],
         "samples": [],
     }
 
@@ -151,6 +207,9 @@ async def run_translate(args):
         d0 = sorted_values[f] * (c - k)
         d1 = sorted_values[c] * (k - f)
         return float(d0 + d1)
+
+    def _normalize_for_compare(text: str) -> str:
+        return re.sub(r"\s+", " ", str(text or "")).strip().lower()
 
     def patched_multimode(values):
         vals = [float(x) for x in list(values) if x is not None]
@@ -180,9 +239,51 @@ async def run_translate(args):
     def patched_post_translate_paragraph(
         self, paragraph, tracker, translate_input, translated_text: str
     ):
-        # If we already forced LLM-only fallback for this paragraph, allow exactly one pass.
+        source_text = str(
+            getattr(paragraph, "_lv_repeat_guard_source_text", getattr(paragraph, "unicode", ""))
+            or ""
+        )
+        normalized_source = _normalize_for_compare(source_text)
+
+        # If repetition was detected before, this is the single retry/fallback candidate.
         if getattr(paragraph, "_lv_repeat_guard_allow_once", False):
             paragraph._lv_repeat_guard_allow_once = False
+            repeat_score_retry = _max_10gram_repeat(translated_text)
+            is_source_like_retry = (
+                normalized_source
+                and _normalize_for_compare(translated_text) == normalized_source
+            )
+            if (
+                repeat_score_retry > repetition_max_10gram
+                or is_source_like_retry
+            ):
+                repetition_guard["hard_fail_count"] += 1
+                para_id = getattr(paragraph, "debug_id", None)
+                if len(repetition_guard["hard_fail_paragraphs"]) < 10:
+                    repetition_guard["hard_fail_paragraphs"].append(
+                        {
+                            "paragraph_debug_id": para_id,
+                            "repeat_score": int(repeat_score_retry),
+                            "source_like": bool(is_source_like_retry),
+                        }
+                    )
+                if allow_source_fallback_on_repetition:
+                    repetition_guard["source_fallback_count"] += 1
+                    print(
+                        f"ENGINE_WARNING repetition_guard_source_fallback=true paragraph_debug_id={para_id}",
+                        file=sys.stderr,
+                    )
+                    return False
+                print(
+                    f"ENGINE_WARNING repetition_guard_hard_fail=true paragraph_debug_id={para_id} repeat_score={repeat_score_retry} source_like={is_source_like_retry}",
+                    file=sys.stderr,
+                )
+                paragraph._lv_repeat_guard_hard_fail = True
+                raise RuntimeError(
+                    f"repetition_guard_unresolved paragraph_debug_id={para_id} repeat_score={repeat_score_retry} source_like={is_source_like_retry}"
+                )
+
+            repetition_guard["repetition_retry_success_count"] += 1
             return original_post_translate_paragraph(
                 self, paragraph, tracker, translate_input, translated_text
             )
@@ -194,7 +295,7 @@ async def run_translate(args):
         )
         if repeat_score > repetition_max_10gram:
             repetition_guard["suspect_count"] += 1
-            repetition_guard["fallback_triggered"] += 1
+            repetition_guard["repetition_retry_count"] += 1
             if len(repetition_guard["samples"]) < 5:
                 repetition_guard["samples"].append(
                     {
@@ -203,6 +304,9 @@ async def run_translate(args):
                         "text_len": len(str(translated_text or "")),
                     }
                 )
+            paragraph._lv_repeat_guard_source_text = str(
+                getattr(paragraph, "unicode", "") or ""
+            )
             paragraph._lv_repeat_guard_allow_once = True
             print(
                 f"ENGINE_WARNING repetition_guard_triggered=true repeat_score={repeat_score} threshold={repetition_max_10gram} paragraph_debug_id={getattr(paragraph, 'debug_id', '')}",
@@ -252,6 +356,7 @@ async def run_translate(args):
                 result = event.get("translate_result")
                 break
     finally:
+        babeldoc_translator_module.httpx.Client = original_httpx_client_factory
         il_translator_module.ILTranslator.add_content_filter_hint = original_add_content_filter_hint
         il_translator_module.ILTranslator.post_translate_paragraph = (
             original_post_translate_paragraph
@@ -260,6 +365,37 @@ async def run_translate(args):
 
     if result is None:
         return {"ok": False, "error": "engine_no_result"}
+    if (
+        not allow_source_fallback_on_repetition
+        and int(repetition_guard["hard_fail_count"] or 0) > 0
+    ):
+        return {
+            "ok": False,
+            "error": "repetition_guard_unresolved",
+            "metrics": {
+                "target_lang": target_lang,
+                "repetition_guard_checked_count": int(repetition_guard["checked"]),
+                "repetition_suspect_count": int(repetition_guard["suspect_count"]),
+                "repetition_retry_count": int(
+                    repetition_guard["repetition_retry_count"]
+                ),
+                "repetition_retry_success_count": int(
+                    repetition_guard["repetition_retry_success_count"]
+                ),
+                "source_fallback_count": int(
+                    repetition_guard["source_fallback_count"]
+                ),
+                "hard_fail_count": int(repetition_guard["hard_fail_count"]),
+                "allow_source_fallback_on_repetition": bool(
+                    allow_source_fallback_on_repetition
+                ),
+                "repetition_guard_samples": repetition_guard["samples"],
+                "repetition_guard_hard_fail_paragraphs": repetition_guard[
+                    "hard_fail_paragraphs"
+                ],
+                "engine_config": effective_config,
+            },
+        }
 
     result_path = getattr(result, "no_watermark_mono_pdf_path", None) or getattr(result, "mono_pdf_path", None)
     if not result_path:
@@ -331,15 +467,24 @@ async def run_translate(args):
             "content_filter_hint_triggered_count": int(content_filter_hint_calls),
             "content_filter_hint_suppressed": bool(args.disable_content_filter_hint),
             "repetition_guard_checked_count": int(repetition_guard["checked"]),
-            "repetition_guard_suspect_count": int(repetition_guard["suspect_count"]),
-            "repetition_guard_fallback_triggered": int(
-                repetition_guard["fallback_triggered"]
+            "repetition_suspect_count": int(repetition_guard["suspect_count"]),
+            "repetition_retry_count": int(repetition_guard["repetition_retry_count"]),
+            "repetition_retry_success_count": int(
+                repetition_guard["repetition_retry_success_count"]
+            ),
+            "source_fallback_count": int(repetition_guard["source_fallback_count"]),
+            "hard_fail_count": int(repetition_guard["hard_fail_count"]),
+            "allow_source_fallback_on_repetition": bool(
+                allow_source_fallback_on_repetition
             ),
             "repetition_guard_max_10gram_repeat_seen": int(
                 repetition_guard["max_10gram_repeat_seen"]
             ),
             "repetition_guard_threshold": int(repetition_max_10gram),
             "repetition_guard_samples": repetition_guard["samples"],
+            "repetition_guard_hard_fail_paragraphs": repetition_guard[
+                "hard_fail_paragraphs"
+            ],
             "global_scale_patch_active": bool(scale_harmonization_patch_active),
             "paragraph_scale_count": int(scale_stats["paragraph_scale_count"] or 0),
             "paragraph_scale_min": scale_stats["paragraph_scale_min"],

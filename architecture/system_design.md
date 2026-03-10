@@ -7,11 +7,16 @@ PDF cevirisinde format bozulmasini minimumda tutan, maliyet kontrollu, fallback-
 - Routing/cost karar kaynagi: `research/router_policy.md`
 - Sadece bu dosya + `research/router_policy.md` mimari kanonik kaynaktir.
 
-## Mode-B Current Status (2026-03-09)
+## Mode-B Current Status (2026-03-10)
 - Branch: `feature/modeb-groq-first-google-deepl`
 - Latest verified checkpoint: `69375a9` (`fix(pdf): stabilize bbox-aware fit flow for readable mode-b output`)
 - Mode-B extraction/rendering line materially improved on real sample (`backend/ornek.pdf`) with sidecar-first extraction and renderer tuning.
-- Output readability is significantly better than earlier fallback/text-wall outputs, but still below full PDFMathTranslate-class natural layout reconstruction.
+- Current integration direction is BabelDOC external engine path for Mode-B output generation; custom renderer remains rollback fallback.
+- External runtime contract now explicitly includes:
+  - `LV_BABELDOC_CA_BUNDLE`
+  - `LV_BABELDOC_INSECURE_TLS` (default `0`, temporary VPN workaround only)
+  - `LV_BABELDOC_ALLOW_SOURCE_FALLBACK_ON_REPETITION` (default `0`)
+- Output readability is significantly better than early fallback/text-wall outputs, but still below full natural-document reconstruction on hard PDFs.
 
 ### Verified Mode-B Milestone Chain (Substance)
 - `2e05a46`: PyMuPDF sidecar extraction boundary added.
@@ -28,13 +33,14 @@ PDF cevirisinde format bozulmasini minimumda tutan, maliyet kontrollu, fallback-
 ### Honest Quality Boundary
 - Fully verified now:
   - real body-text extraction path is active (fallback path no longer primary in normal sidecar mode)
-  - Mode-B output generation is readable and operational for current test corpus
-  - renderer compaction/fit flow is stable and bounded
+  - Mode-B output generation is operational for current test corpus
+  - BabelDOC external path wiring and runtime controls are integrated in backend
 - Improved but imperfect:
   - advanced natural document feel (high-end typography and nuanced page composition)
   - full layout fidelity on complex/edge-case PDFs
+  - repetition handling behavior is under active hardening; do not treat as fully closed yet
 - Future work:
-  - higher-fidelity layout reconstruction and stronger coordinate-aware paragraph composition
+  - stabilize external BabelDOC translation semantics under constrained network/VPN environments
   - broader real-document benchmark corpus and quality gating
 
 ## Current Implemented Baseline (2026-03-04)
