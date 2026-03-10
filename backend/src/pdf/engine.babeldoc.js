@@ -115,7 +115,8 @@ export function createBabelDocEngine() {
                 primary_font_family: null,
                 disable_rich_text_translate: parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", false),
                 split_short_lines: parseBooleanEnv("LV_BABELDOC_SPLIT_SHORT_LINES", false),
-                short_line_split_factor: Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8)
+                short_line_split_factor: Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8),
+                disable_content_filter_hint: parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true)
               }
             }
           };
@@ -129,6 +130,7 @@ export function createBabelDocEngine() {
         const disableRichTextTranslate = parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", false);
         const splitShortLines = parseBooleanEnv("LV_BABELDOC_SPLIT_SHORT_LINES", false);
         const shortLineSplitFactor = Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8);
+        const disableContentFilterHint = parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true);
         const effectiveConfig = {
           lang_in: resolvedSourceLang,
           lang_out: resolvedTargetLang,
@@ -136,7 +138,8 @@ export function createBabelDocEngine() {
           primary_font_family: primaryFontFamily || null,
           disable_rich_text_translate: disableRichTextTranslate,
           split_short_lines: splitShortLines,
-          short_line_split_factor: Number.isFinite(shortLineSplitFactor) ? shortLineSplitFactor : 0.8
+          short_line_split_factor: Number.isFinite(shortLineSplitFactor) ? shortLineSplitFactor : 0.8,
+          disable_content_filter_hint: disableContentFilterHint
         };
         console.log("BABELDOC_ENGINE_CONFIG", JSON.stringify({
           job_id: String(options.jobId || ""),
@@ -172,6 +175,9 @@ export function createBabelDocEngine() {
         if (effectiveConfig.split_short_lines) {
           runnerArgs.push("--split-short-lines");
           runnerArgs.push("--short-line-split-factor", String(effectiveConfig.short_line_split_factor));
+        }
+        if (effectiveConfig.disable_content_filter_hint) {
+          runnerArgs.push("--disable-content-filter-hint");
         }
         const run = await runPython({
           pythonCmd,
@@ -243,7 +249,8 @@ export function createBabelDocEngine() {
               primary_font_family: null,
               disable_rich_text_translate: parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", false),
               split_short_lines: parseBooleanEnv("LV_BABELDOC_SPLIT_SHORT_LINES", false),
-              short_line_split_factor: Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8)
+              short_line_split_factor: Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8),
+              disable_content_filter_hint: parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true)
             }
           }
         };

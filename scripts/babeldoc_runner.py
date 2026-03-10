@@ -20,6 +20,7 @@ def build_parser():
     parser.add_argument("--disable-rich-text-translate", action="store_true")
     parser.add_argument("--split-short-lines", action="store_true")
     parser.add_argument("--short-line-split-factor", type=float, default=0.8)
+    parser.add_argument("--disable-content-filter-hint", action="store_true")
     return parser
 
 
@@ -31,6 +32,7 @@ async def run_translate(args):
     from babeldoc.format.pdf.translation_config import TranslationConfig
     from babeldoc.translator.translator import OpenAITranslator
     from babeldoc.translator.translator import set_translate_rate_limiter
+    from babeldoc.format.pdf.document_il.midend import il_translator as il_translator_module
 
     input_path = Path(args.input).resolve()
     output_path = Path(args.output).resolve()
@@ -56,6 +58,7 @@ async def run_translate(args):
         "disable_rich_text_translate": bool(args.disable_rich_text_translate),
         "split_short_lines": bool(args.split_short_lines),
         "short_line_split_factor": float(args.short_line_split_factor),
+        "disable_content_filter_hint": bool(args.disable_content_filter_hint),
     }
     print(
         f"ENGINE_CONFIG {json.dumps(effective_config, ensure_ascii=False)}",
@@ -78,6 +81,24 @@ async def run_translate(args):
         send_temperature=True,
     )
     set_translate_rate_limiter(2)
+
+    # Product mode: suppress user-facing content-filter hint insertion in output PDFs.
+    content_filter_hint_calls = 0
+    original_add_content_filter_hint = il_translator_module.ILTranslator.add_content_filter_hint
+
+    def patched_add_content_filter_hint(self, page, paragraph):
+        nonlocal content_filter_hint_calls
+        content_filter_hint_calls += 1
+        if bool(args.disable_content_filter_hint):
+            print(
+                "ENGINE_NOTICE content_filter_hint_suppressed=true",
+                file=sys.stderr,
+            )
+            return
+        return original_add_content_filter_hint(self, page, paragraph)
+
+    il_translator_module.ILTranslator.add_content_filter_hint = patched_add_content_filter_hint
+
     babeldoc_high_level.init()
     layout_model = DocLayoutModel.load_onnx()
 
@@ -99,12 +120,15 @@ async def run_translate(args):
     )
 
     result = None
-    async for event in async_translate(config):
-        if event.get("type") == "error":
-            return {"ok": False, "error": str(event.get("error") or "engine_error")}
-        if event.get("type") == "finish":
-            result = event.get("translate_result")
-            break
+    try:
+        async for event in async_translate(config):
+            if event.get("type") == "error":
+                return {"ok": False, "error": str(event.get("error") or "engine_error")}
+            if event.get("type") == "finish":
+                result = event.get("translate_result")
+                break
+    finally:
+        il_translator_module.ILTranslator.add_content_filter_hint = original_add_content_filter_hint
 
     if result is None:
         return {"ok": False, "error": "engine_no_result"}
@@ -132,6 +156,8 @@ async def run_translate(args):
         "metrics": {
             "page_count": int(page_count),
             "overflow_flag": False,
+            "content_filter_hint_triggered_count": int(content_filter_hint_calls),
+            "content_filter_hint_suppressed": bool(args.disable_content_filter_hint),
             "engine_config": effective_config
         },
     }
