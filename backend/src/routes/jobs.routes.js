@@ -17,6 +17,19 @@ const ALLOWED_MODES = new Set(["readable", "strict"]);
 const ALLOWED_TIERS = new Set(["economy", "standard", "premium"]);
 const ALLOWED_PROVIDER_MODES = new Set(["mode_a", "mode_b"]);
 const RUN_ERROR_CODES = ["LAYOUT_QUALITY_GATE_BLOCK"];
+const SIMULATION_QUERY_KEYS = [
+  "simulate_fail_tier",
+  "simulate_fail_tiers",
+  "simulate_fail_code",
+  "simulate_retry_once_tiers",
+  "simulate_layout_missing_anchor_count",
+  "simulate_layout_overflow_count",
+  "simulate_provider_latency_ms",
+  "provider_timeout_ms",
+  "simulate_fail_before_provider",
+  "worker_delay_ms",
+  "async"
+];
 
 function deriveOwnerId(apiKey) {
   return crypto.createHash("sha256").update(apiKey).digest("hex").slice(0, 8);
@@ -265,6 +278,12 @@ export function createJobsRouter(deps) {
       });
     }
     if (job.status !== "PENDING") return res.status(409).json({ error: "job_already_running" });
+
+    const simulationEnabled = String(process.env.LV_ENABLE_SIMULATION_FLAGS || "0").trim().toLowerCase() === "1";
+    const hasSimulationParams = SIMULATION_QUERY_KEYS.some((key) => req.query?.[key] !== undefined);
+    if (hasSimulationParams && !simulationEnabled) {
+      return res.status(403).json({ error: "simulation_flags_disabled" });
+    }
 
     const simulateFailTier = (req.query?.simulate_fail_tier || "").toString().trim() || null;
     const simulateFailTiers = normalizeCsvParam(req.query?.simulate_fail_tiers);

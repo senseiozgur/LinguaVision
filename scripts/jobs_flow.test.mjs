@@ -101,6 +101,7 @@ async function main() {
         PORT: String(port),
         TRANSLATION_CACHE_PERSIST: "0",
         BILLING_PROVIDER: "stub",
+        LV_ENABLE_SIMULATION_FLAGS: "1",
         LV_MODE_A_ALLOW_SIMULATED_SUCCESS: "1",
         LV_API_KEY: API_KEY,
         LV_MAX_UPLOAD_BYTES: "52428800",
