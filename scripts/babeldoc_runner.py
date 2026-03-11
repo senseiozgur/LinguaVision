@@ -7,6 +7,55 @@ import shutil
 import statistics as py_statistics
 import sys
 from pathlib import Path
+from collections import Counter
+
+
+def _normalize_ws(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text or "")).strip().lower()
+
+
+def _word_tokens(text: str) -> list[str]:
+    return re.findall(r"[a-zA-ZçğıöşüÇĞİÖŞÜß]+", str(text or "").lower())
+
+
+def _token_overlap_ratio(source_text: str, output_text: str) -> float:
+    src = set(_word_tokens(source_text))
+    out = set(_word_tokens(output_text))
+    if not src or not out:
+        return 0.0
+    return float(len(src & out)) / float(max(len(src), 1))
+
+
+def _trigram_jaccard(source_text: str, output_text: str) -> float:
+    left = _normalize_ws(source_text)
+    right = _normalize_ws(output_text)
+    if len(left) < 3 or len(right) < 3:
+        return 0.0
+    left_set = {left[i : i + 3] for i in range(len(left) - 2)}
+    right_set = {right[i : i + 3] for i in range(len(right) - 2)}
+    if not left_set or not right_set:
+        return 0.0
+    inter = len(left_set & right_set)
+    union = len(left_set | right_set)
+    return float(inter) / float(union) if union else 0.0
+
+
+def _source_segments(text: str) -> list[str]:
+    parts = [seg.strip() for seg in re.split(r"[.!?;:]\s+", str(text or ""))]
+    return [seg for seg in parts if len(seg) >= 35]
+
+
+def _count_copied_source_segments(source_text: str, output_text: str) -> tuple[int, list[str]]:
+    output_norm = _normalize_ws(output_text)
+    count = 0
+    samples = []
+    for seg in _source_segments(source_text):
+        seg_norm = _normalize_ws(seg)
+        if seg_norm and seg_norm in output_norm:
+            count += 1
+            if len(samples) < 8:
+                samples.append(seg[:180])
+    return int(count), samples
 
 
 def build_parser():
@@ -408,13 +457,24 @@ async def run_translate(args):
     try:
         import pymupdf
 
+        source_doc = pymupdf.open(str(input_path))
         doc = pymupdf.open(str(output_path))
         page_count = doc.page_count
         visible_char_count = 0
         visible_cjk_count = 0
+        source_page_texts = []
+        output_page_texts = []
+        copied_by_page = []
         for i in range(doc.page_count):
             page = doc.load_page(i)
             text = page.get_text("text") or ""
+            source_text = ""
+            if i < source_doc.page_count:
+                source_text = source_doc.load_page(i).get_text("text") or ""
+            source_page_texts.append(source_text)
+            output_page_texts.append(text)
+            page_copied, _ = _count_copied_source_segments(source_text, text)
+            copied_by_page.append(int(page_copied))
             visible_char_count += len(text)
             for seg in page.get_texttrace():
                 if seg.get("type", None) == 3:
@@ -428,10 +488,23 @@ async def run_translate(args):
                         re.findall(r"[\u4e00-\u9fff]", "".join(chars))
                     )
         doc.close()
+        source_doc.close()
+        source_full_text = "\n".join(source_page_texts)
+        output_full_text = "\n".join(output_page_texts)
+        source_output_token_overlap_ratio = _token_overlap_ratio(source_full_text, output_full_text)
+        source_output_trigram_jaccard = _trigram_jaccard(source_full_text, output_full_text)
+        copied_source_segments_total, copied_examples = _count_copied_source_segments(
+            source_full_text, output_full_text
+        )
     except Exception:
         page_count = 0
         visible_char_count = 0
         visible_cjk_count = 0
+        source_output_token_overlap_ratio = 0.0
+        source_output_trigram_jaccard = 0.0
+        copied_source_segments_total = 0
+        copied_examples = []
+        copied_by_page = []
 
     visible_cjk_ratio = (
         float(visible_cjk_count) / float(visible_char_count)
@@ -464,6 +537,15 @@ async def run_translate(args):
             "output_cjk_ratio": round(float(visible_cjk_ratio), 6),
             "output_visible_char_count": int(visible_char_count),
             "cjk_residue_warning": cjk_residue_warning,
+            "source_output_token_overlap_ratio": round(
+                float(source_output_token_overlap_ratio), 6
+            ),
+            "source_output_trigram_jaccard": round(
+                float(source_output_trigram_jaccard), 6
+            ),
+            "copied_source_segments_total": int(copied_source_segments_total),
+            "copied_source_segments_by_page": copied_by_page,
+            "copied_source_segments_examples": copied_examples,
             "content_filter_hint_triggered_count": int(content_filter_hint_calls),
             "content_filter_hint_suppressed": bool(args.disable_content_filter_hint),
             "repetition_guard_checked_count": int(repetition_guard["checked"]),
