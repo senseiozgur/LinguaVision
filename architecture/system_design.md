@@ -16,6 +16,13 @@ PDF cevirisinde format bozulmasini minimumda tutan, maliyet kontrollu, fallback-
   - `LV_BABELDOC_CA_BUNDLE`
   - `LV_BABELDOC_INSECURE_TLS` (default `0`, temporary VPN workaround only)
   - `LV_BABELDOC_ALLOW_SOURCE_FALLBACK_ON_REPETITION` (default `0`)
+  - `LV_PDF_ENGINE_REQUIRED_PYTHON` (default `3.12`)
+  - `LV_PDF_ENGINE_RUNTIME_TIMEOUT_MS` (runtime probe timeout)
+  - `LV_MODE_B_ENGINE_MAX_CONCURRENCY` (external engine concurrency ceiling)
+- Mode-B external execution now emits deterministic runtime/attempt events:
+  - `ENGINE_RUNTIME_VALIDATED` / `ENGINE_RUNTIME_INVALID`
+  - `PROVIDER_ATTEMPT_STARTED` / `PROVIDER_ATTEMPT_FINISHED`
+  - `ENGINE_SELECTED` includes resolved order, exclusions, and selection reason
 - Output readability is significantly better than early fallback/text-wall outputs, but still below full natural-document reconstruction on hard PDFs.
 
 ### Verified Mode-B Milestone Chain (Substance)

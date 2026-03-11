@@ -43,7 +43,9 @@ export function createProviderAdapter({
   googleServiceAccountJson = process.env.GOOGLE_SERVICE_ACCOUNT_JSON || "",
   googleTranslateApiKey = process.env.GOOGLE_TRANSLATE_API_KEY || "",
   openAiApiKey = process.env.OPENAI_API_KEY || "",
-  groqApiKey = process.env.GROQ_API_KEY || ""
+  groqApiKey = process.env.GROQ_API_KEY || "",
+  modeAProviderRegistryOverride = null,
+  modeBProviderRegistryOverride = null
 } = {}) {
   const allowModeASimulatedSuccess =
     String(process.env.LV_MODE_A_ALLOW_SIMULATED_SUCCESS || "0").trim().toLowerCase() === "1";
@@ -62,7 +64,7 @@ export function createProviderAdapter({
     credentialsPath: googleCredentialsPath,
     credentialsJson: googleServiceAccountJson || null
   });
-  const providerRegistry = {
+  const providerRegistry = modeAProviderRegistryOverride || {
     deepl: deepL,
     google
   };
@@ -70,7 +72,7 @@ export function createProviderAdapter({
   const groq = createGroqAdapter({ apiKey: groqApiKey });
   const googleText = createGoogleTextAdapter({ apiKey: googleTranslateApiKey });
   const deepLText = createDeepLTextAdapter({ apiKey: deeplApiKey, baseUrl: deeplBaseUrl });
-  const modeBProviderRegistry = {
+  const modeBProviderRegistry = modeBProviderRegistryOverride || {
     deepl_text: deepLText,
     google_text: googleText,
     openai: openAi,
@@ -82,6 +84,31 @@ export function createProviderAdapter({
   const configuredModeBProviders = getModeBProviderOrder(modeBProviderOrder).filter(
     (name) => modeBProviderRegistry[name]?.enabled
   );
+
+  function buildModeBRoutingSnapshot() {
+    const rawOrder = getModeBProviderOrder(modeBProviderOrder);
+    const candidates = [];
+    const exclusions = [];
+    for (const name of rawOrder) {
+      const provider = modeBProviderRegistry[name];
+      if (provider?.enabled) {
+        candidates.push(name);
+      } else {
+        exclusions.push({
+          provider: name,
+          reason: "provider_disabled_or_missing_credentials"
+        });
+      }
+    }
+    return {
+      configured_order: rawOrder,
+      resolved_order: candidates.length ? candidates : ["openai", "groq"],
+      exclusions,
+      selection_reason: candidates.length
+        ? "env_order_filtered_by_enabled_providers"
+        : "fallback_default_due_to_no_enabled_provider"
+    };
+  }
   const perf = {
     provider_calls_total: 0,
     provider_success_total: 0,
@@ -97,6 +124,17 @@ export function createProviderAdapter({
   }
 
   return {
+    getRoutingSnapshot() {
+      const modeASnapshot = {
+        configured_order: getModeAProviderOrder(modeAProviderOrder),
+        resolved_order: configuredModeAProviders.slice(),
+        has_enabled_provider: configuredModeAProviders.length > 0
+      };
+      return {
+        mode_a: modeASnapshot,
+        mode_b: buildModeBRoutingSnapshot()
+      };
+    },
     async translateDocument({
       inputBuffer,
       executionMode = "MODE_A",
@@ -356,21 +394,31 @@ export function createProviderAdapter({
         return { ok: false, error: normalizeProviderError(simulateFailCode) };
       }
 
-      const providersToTry = configuredModeBProviders.length > 0 ? configuredModeBProviders : ["openai", "groq"];
+      const routing = buildModeBRoutingSnapshot();
+      const providersToTry = routing.resolved_order;
       const attempts = [];
       let escalations = 0;
       const maxEscalations = Math.max(0, providersToTry.length - 1);
+      let previousError = null;
 
       for (let i = 0; i < providersToTry.length; i++) {
         const providerName = providersToTry[i];
         const provider = modeBProviderRegistry[providerName];
+        const attemptIndex = i + 1;
+        const reasonForAttempt =
+          i === 0
+            ? "primary_provider_in_resolved_order"
+            : `fallback_after_${String(previousError || "unknown_error").toLowerCase()}`;
         if (!provider?.enabled) {
           attempts.push({
             provider: providerName,
-            attempt_no: i + 1,
+            attempt_no: attemptIndex,
+            attempt_index: attemptIndex,
+            reason_for_attempt: reasonForAttempt,
             status: "failed",
             error_code: "PROVIDER_AUTH_ERROR"
           });
+          previousError = "PROVIDER_AUTH_ERROR";
           continue;
         }
 
@@ -384,11 +432,14 @@ export function createProviderAdapter({
             ok: true,
             provider_used: providerName,
             translatedChunks: result.translatedChunks.slice().sort((a, b) => a.index - b.index),
+            routing,
             provider_attempts: [
               ...attempts,
               {
                 provider: providerName,
-                attempt_no: i + 1,
+                attempt_no: attemptIndex,
+                attempt_index: attemptIndex,
+                reason_for_attempt: reasonForAttempt,
                 status: "success"
               }
             ],
@@ -399,10 +450,13 @@ export function createProviderAdapter({
         const errorCode = normalizeProviderError(result?.error || "PROVIDER_UPSTREAM_ERROR");
         attempts.push({
           provider: providerName,
-          attempt_no: i + 1,
+          attempt_no: attemptIndex,
+          attempt_index: attemptIndex,
+          reason_for_attempt: reasonForAttempt,
           status: "failed",
           error_code: errorCode
         });
+        previousError = errorCode;
 
         if (i < providersToTry.length - 1 && RETRYABLE_PROVIDER_ERRORS.has(errorCode) && escalations < maxEscalations) {
           escalations += 1;
@@ -412,6 +466,7 @@ export function createProviderAdapter({
           ok: false,
           error: errorCode,
           provider_used: providerName,
+          routing,
           provider_attempts: attempts
         };
       }
@@ -420,6 +475,7 @@ export function createProviderAdapter({
         ok: false,
         error: "PROVIDER_AUTH_ERROR",
         provider_used: providersToTry[providersToTry.length - 1] || null,
+        routing,
         provider_attempts: attempts
       };
     }
