@@ -45,6 +45,8 @@ export function createProviderAdapter({
   openAiApiKey = process.env.OPENAI_API_KEY || "",
   groqApiKey = process.env.GROQ_API_KEY || ""
 } = {}) {
+  const allowModeASimulatedSuccess =
+    String(process.env.LV_MODE_A_ALLOW_SIMULATED_SUCCESS || "0").trim().toLowerCase() === "1";
   const transientFailureSeen = new Set();
   const translationCache = new TranslationCache({
     maxEntries: cacheMaxEntries,
@@ -257,6 +259,18 @@ export function createProviderAdapter({
             provider_attempts: providerAttempts
           };
         }
+      }
+
+      if (!allowModeASimulatedSuccess) {
+        perf.provider_fail_total += 1;
+        perf.provider_latency_total_ms += Date.now() - startedAt;
+        return {
+          ok: false,
+          error: "PROVIDER_AUTH_ERROR",
+          tier,
+          provider_used: configuredModeAProviders[configuredModeAProviders.length - 1] || null,
+          provider_attempts: providerAttempts
+        };
       }
 
       const cacheKey = makeCacheKey({

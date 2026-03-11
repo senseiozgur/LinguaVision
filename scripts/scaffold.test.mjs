@@ -47,14 +47,13 @@ try {
 }
 
 try {
-  const admissionBlocked = validateAdmission({
+  const admissionAccepted = validateAdmission({
     packageName: "free",
     fileSizeBytes: 1 * 1024 * 1024,
-    worstCaseUnits: 50,
-    remainingUnits: 20
+    worstCaseUnits: 50
   });
-  assert(!admissionBlocked.ok && admissionBlocked.error === "COST_GUARD_BLOCK", "admission should block");
-  notes.push("PASS admission COST_GUARD_BLOCK");
+  assert(admissionAccepted.ok, "admission should not depend on client remaining units");
+  notes.push("PASS admission ignores client remaining_units");
 } catch (err) {
   pass = false;
   notes.push(`FAIL admission guard: ${err.message}`);
@@ -88,7 +87,6 @@ const translationCache = fs.readFileSync(path.join(root, "backend/src/providers/
 const pdfPipeline = fs.readFileSync(path.join(root, "backend/src/pdf/layout.pipeline.js"), "utf8");
 const hasAdmissionGuard =
   jobsRoute.includes("validateAdmission") &&
-  jobsRoute.includes("COST_GUARD_BLOCK") &&
   jobsRoute.includes("INPUT_LIMIT_EXCEEDED") &&
   jobsRoute.includes("packageName === \"free\" && mode === \"strict\"");
 const hasRuntimeGuard =

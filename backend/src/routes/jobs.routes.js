@@ -205,8 +205,6 @@ export function createJobsRouter(deps) {
     const sourceLang = req.body?.source_lang ? req.body.source_lang.toString().trim() : null;
     const providerModeRaw = (req.body?.provider_mode || "mode_a").toString().trim().toLowerCase();
     const providerMode = providerModeRaw === "mode_b" ? "MODE_B" : "MODE_A";
-    const remainingUnitsRaw = req.body?.remaining_units;
-    const remainingUnits = remainingUnitsRaw !== undefined ? Number(remainingUnitsRaw) : null;
     if (!file) return res.status(400).json({ error: "invalid_input" });
     if (!targetLang) return res.status(400).json({ error: "invalid_input" });
     if (!isValidLangCode(targetLang)) return res.status(400).json({ error: "invalid_input" });
@@ -217,14 +215,10 @@ export function createJobsRouter(deps) {
     if (packageName === "free" && mode === "strict") {
       return res.status(409).json({ error: "INPUT_LIMIT_EXCEEDED" });
     }
-    if (remainingUnits !== null && (!Number.isFinite(remainingUnits) || remainingUnits < 0)) {
-      return res.status(400).json({ error: "invalid_input" });
-    }
-
     const fileSizeBytes = file.size || file.buffer.length;
     const stepUnits = estimateStepUnits({ fileSizeBytes, mode });
     const worstCaseUnits = stepUnits * 2;
-    const admission = validateAdmission({ packageName, fileSizeBytes, worstCaseUnits, remainingUnits });
+    const admission = validateAdmission({ packageName, fileSizeBytes, worstCaseUnits });
     if (!admission.ok) {
       const code = admission.error;
       const status = code === "INPUT_LIMIT_EXCEEDED" || code === "COST_GUARD_BLOCK" ? 409 : 400;

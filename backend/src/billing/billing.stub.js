@@ -5,6 +5,9 @@ export function createBillingStubAdapter() {
 
   return {
     async charge({ request_id, units }) {
+      if (process.env.BILLING_STUB_FAIL_CHARGE === "1") {
+        throw new Error("SIMULATED_CHARGE_FAILURE");
+      }
       const existing = charges.get(request_id);
       if (existing) {
         return { ...existing, already_charged: true };

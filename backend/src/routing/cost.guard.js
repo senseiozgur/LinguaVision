@@ -18,7 +18,7 @@ export function estimateStepUnits({ fileSizeBytes, mode = "readable" }) {
   return base;
 }
 
-export function validateAdmission({ packageName, fileSizeBytes, worstCaseUnits = 0, remainingUnits = null }) {
+export function validateAdmission({ packageName, fileSizeBytes, worstCaseUnits = 0 }) {
   const resolved = getRules(packageName);
   if (!resolved) {
     return { ok: false, error: "invalid_input" };
@@ -28,10 +28,6 @@ export function validateAdmission({ packageName, fileSizeBytes, worstCaseUnits =
   const sizeMb = fileSizeBytes / (1024 * 1024);
   if (sizeMb > rules.maxSizeMb) {
     return { ok: false, error: "INPUT_LIMIT_EXCEEDED" };
-  }
-
-  if (remainingUnits !== null && Number.isFinite(remainingUnits) && worstCaseUnits > remainingUnits) {
-    return { ok: false, error: "COST_GUARD_BLOCK" };
   }
 
   return { ok: true, packageName: pkg, budgetUnits: rules.budgetUnits };

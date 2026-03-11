@@ -101,6 +101,7 @@ async function main() {
         PORT: String(port),
         TRANSLATION_CACHE_PERSIST: "0",
         BILLING_PROVIDER: "stub",
+        LV_MODE_A_ALLOW_SIMULATED_SUCCESS: "1",
         LV_API_KEY: API_KEY,
         LV_MAX_UPLOAD_BYTES: "52428800",
         LV_RATE_LIMIT_CREATE_PER_MIN: "500",
@@ -172,12 +173,12 @@ async function main() {
     assert(cacheGet.translation_cache_hit === true, "second same-doc run should set translation_cache_hit=true");
     notes.push("PASS deterministic translation cache hit on repeated same-document job");
 
-    // Admission budget block
-    const blockedRes = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 0 });
-    assert(blockedRes.status === 409, `blocked status expected 409 got ${blockedRes.status}`);
-    const blocked = await blockedRes.json();
-    assert(blocked.error === "COST_GUARD_BLOCK", `blocked error expected COST_GUARD_BLOCK got ${blocked.error}`);
-    notes.push("PASS COST_GUARD_BLOCK admission");
+    // Client remaining_units should not influence server-side admission decisions.
+    const remainingUnitsZero = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 0 });
+    assert(remainingUnitsZero.status === 201, `remaining_units=0 expected 201 got ${remainingUnitsZero.status}`);
+    const remainingUnitsHigh = await postJob({ targetLang: "tr", packageName: "free", remainingUnits: 999999 });
+    assert(remainingUnitsHigh.status === 201, `remaining_units=999999 expected 201 got ${remainingUnitsHigh.status}`);
+    notes.push("PASS client remaining_units ignored by admission");
 
     // Baseline hardening: invalid package should fail fast
     const invalidPkgRes = await postJob({ targetLang: "tr", packageName: "enterprise", remainingUnits: 100 });
