@@ -5,6 +5,7 @@
 - Production-ready parts (internal scope): iOS contract/core regressions and worker/storage/claim hardening flows are implemented and repeatedly exercised in local/staging-style verification.
 - Current truth for Mode-B: extraction fallback issue is resolved, body-focused extraction works, and external BabelDOC engine path is integrated as the active direction for Mode-B output.
 - External runtime hardening was expanded with explicit controls for TLS and repetition fallback policy (`LV_BABELDOC_CA_BUNDLE`, `LV_BABELDOC_INSECURE_TLS`, `LV_BABELDOC_ALLOW_SOURCE_FALLBACK_ON_REPETITION`).
+- Audit hardening updates (P0/P1 line): MODE-A silent passthrough success is disabled by default, charge-failure paths are terminalized (`FAILED`), simulation query flags are default-off behind `LV_ENABLE_SIMULATION_FLAGS`, and daily-cap denial now maps to deterministic billing error semantics.
 - Remaining boundary: Mode-B output quality is improved but still not equivalent to full high-fidelity natural-document reconstruction on broad complex PDF sets.
 - External blockers still matter for full closure: live provider credential matrix, broader representative corpus, and final operator-side environment proofs ([docs/FINAL_VERIFICATION.md](../docs/FINAL_VERIFICATION.md)).
 

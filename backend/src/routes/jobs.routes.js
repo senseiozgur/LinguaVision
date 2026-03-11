@@ -17,6 +17,19 @@ const ALLOWED_MODES = new Set(["readable", "strict"]);
 const ALLOWED_TIERS = new Set(["economy", "standard", "premium"]);
 const ALLOWED_PROVIDER_MODES = new Set(["mode_a", "mode_b"]);
 const RUN_ERROR_CODES = ["LAYOUT_QUALITY_GATE_BLOCK"];
+const SIMULATION_QUERY_KEYS = [
+  "simulate_fail_tier",
+  "simulate_fail_tiers",
+  "simulate_fail_code",
+  "simulate_retry_once_tiers",
+  "simulate_layout_missing_anchor_count",
+  "simulate_layout_overflow_count",
+  "simulate_provider_latency_ms",
+  "provider_timeout_ms",
+  "simulate_fail_before_provider",
+  "worker_delay_ms",
+  "async"
+];
 
 function deriveOwnerId(apiKey) {
   return crypto.createHash("sha256").update(apiKey).digest("hex").slice(0, 8);
@@ -205,8 +218,6 @@ export function createJobsRouter(deps) {
     const sourceLang = req.body?.source_lang ? req.body.source_lang.toString().trim() : null;
     const providerModeRaw = (req.body?.provider_mode || "mode_a").toString().trim().toLowerCase();
     const providerMode = providerModeRaw === "mode_b" ? "MODE_B" : "MODE_A";
-    const remainingUnitsRaw = req.body?.remaining_units;
-    const remainingUnits = remainingUnitsRaw !== undefined ? Number(remainingUnitsRaw) : null;
     if (!file) return res.status(400).json({ error: "invalid_input" });
     if (!targetLang) return res.status(400).json({ error: "invalid_input" });
     if (!isValidLangCode(targetLang)) return res.status(400).json({ error: "invalid_input" });
@@ -217,14 +228,10 @@ export function createJobsRouter(deps) {
     if (packageName === "free" && mode === "strict") {
       return res.status(409).json({ error: "INPUT_LIMIT_EXCEEDED" });
     }
-    if (remainingUnits !== null && (!Number.isFinite(remainingUnits) || remainingUnits < 0)) {
-      return res.status(400).json({ error: "invalid_input" });
-    }
-
     const fileSizeBytes = file.size || file.buffer.length;
     const stepUnits = estimateStepUnits({ fileSizeBytes, mode });
     const worstCaseUnits = stepUnits * 2;
-    const admission = validateAdmission({ packageName, fileSizeBytes, worstCaseUnits, remainingUnits });
+    const admission = validateAdmission({ packageName, fileSizeBytes, worstCaseUnits });
     if (!admission.ok) {
       const code = admission.error;
       const status = code === "INPUT_LIMIT_EXCEEDED" || code === "COST_GUARD_BLOCK" ? 409 : 400;
@@ -271,6 +278,12 @@ export function createJobsRouter(deps) {
       });
     }
     if (job.status !== "PENDING") return res.status(409).json({ error: "job_already_running" });
+
+    const simulationEnabled = String(process.env.LV_ENABLE_SIMULATION_FLAGS || "0").trim().toLowerCase() === "1";
+    const hasSimulationParams = SIMULATION_QUERY_KEYS.some((key) => req.query?.[key] !== undefined);
+    if (hasSimulationParams && !simulationEnabled) {
+      return res.status(403).json({ error: "simulation_flags_disabled" });
+    }
 
     const simulateFailTier = (req.query?.simulate_fail_tier || "").toString().trim() || null;
     const simulateFailTiers = normalizeCsvParam(req.query?.simulate_fail_tiers);

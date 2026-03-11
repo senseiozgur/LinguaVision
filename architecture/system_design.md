@@ -35,6 +35,8 @@ PDF cevirisinde format bozulmasini minimumda tutan, maliyet kontrollu, fallback-
   - real body-text extraction path is active (fallback path no longer primary in normal sidecar mode)
   - Mode-B output generation is operational for current test corpus
   - BabelDOC external path wiring and runtime controls are integrated in backend
+  - production semantics no longer allow MODE-A silent source-PDF success when credentials are missing
+  - jobs that enter `PROCESSING` are forced to terminal `READY|FAILED` on charge/provider failures
 - Improved but imperfect:
   - advanced natural document feel (high-end typography and nuanced page composition)
   - full layout fidelity on complex/edge-case PDFs
@@ -42,6 +44,11 @@ PDF cevirisinde format bozulmasini minimumda tutan, maliyet kontrollu, fallback-
 - Future work:
   - stabilize external BabelDOC translation semantics under constrained network/VPN environments
   - broader real-document benchmark corpus and quality gating
+
+### Runtime Guardrails (P0/P1)
+- `remaining_units` client field is ignored for admission decisions; server-side policy is authoritative.
+- Simulation query flags on `/jobs/:id/run` are blocked by default and require `LV_ENABLE_SIMULATION_FLAGS=1`.
+- Billing error code mapping includes `BILLING_DAILY_CAP_EXCEEDED` for server-side cap denial paths.
 
 ## Current Implemented Baseline (2026-03-04)
 - Jobs API: `POST /jobs`, `POST /jobs/:id/run`, `GET /jobs/:id`, `GET /jobs/:id/events`, `GET /jobs/:id/output`

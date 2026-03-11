@@ -193,6 +193,46 @@ export function createJobExecutor(deps) {
     }
   }
 
+  async function failJobTerminal({
+    job,
+    runRequestId,
+    errorCode,
+    chargeResult,
+    firstProviderRequestAttempted,
+    qualityGatePassed = null,
+    qualityGateReason = null
+  }) {
+    const finalJob = await deps.jobs.get(job.id);
+    const finalBilling = finalJob?.billing || job.billing || {};
+    const terminalChargeState = (() => {
+      const state = String(finalBilling.charge_state || "").trim();
+      const explicitRefundStates = new Set(["REFUNDED", "REFUND_PENDING", "REFUND_RETRYING", "REFUND_FAILED_FINAL"]);
+      if (explicitRefundStates.has(state)) return state;
+      if (finalBilling.refunded) return "REFUNDED";
+      if (chargeResult && firstProviderRequestAttempted) return "REFUND_PENDING";
+      return "NOT_CHARGED";
+    })();
+
+    await deps.jobs.update(job.id, {
+      status: "FAILED",
+      progress_pct: 100,
+      error_code: errorCode,
+      quality_gate_passed: qualityGatePassed,
+      quality_gate_reason: qualityGateReason,
+      ux_hint: mapErrorToUxHint(errorCode),
+      billing: {
+        ...finalBilling,
+        request_id: runRequestId,
+        charge_state: terminalChargeState
+      }
+    });
+    await deps.jobs.appendJobEvent(job.id, job.owner_id, "JOB_FAILED", {
+      error_code: errorCode
+    });
+    bump("jobs_failed_total");
+    return { ok: false, error: errorCode };
+  }
+
   return async function executeJob({
     jobId,
     workerId,
@@ -223,66 +263,71 @@ export function createJobExecutor(deps) {
       worker_id: workerId || null
     });
 
-    if (workerDelayMs > 0) {
-      await sleep(workerDelayMs);
-    }
-
-    const inBytes = await deps.storage.readFile(job.input_file_path);
-    const executionMode = (job.provider_mode || "MODE_A").toUpperCase();
-    await deps.jobs.appendJobEvent(job.id, job.owner_id, executionMode === "MODE_B" ? "MODE_B_SELECTED" : "MODE_A_SELECTED", {
-      worker_id: workerId || null,
-      request_id: runRequestId,
-      mode: executionMode
-    });
-    const route = planRoute({ packageName: job.package_name || "free", mode: job.mode || "readable" });
-    const baseStepUnits = estimateStepUnits({ fileSizeBytes: inBytes.length, mode: route.mode });
-    const spentUnits = Number(job.billing?.charged_units || 0);
-    const unitsToCharge = Math.max(1, baseStepUnits);
-    const cacheKeyOptions = deps.cacheKeyOptions || {
-      modeAProviderOrder: process.env.LV_PROVIDER_MODE_A_ORDER || "deepl,google",
-      modeBProviderOrder: process.env.LV_MODE_B_PROVIDER_ORDER || "openai,groq",
-      modeAOutputVersion: "mode_a_pdf_direct_v1",
-      modeBOutputVersion: "mode_b_layout_v2"
-    };
-    const outputCache = deps.outputCache || null;
-    const providerFamily = executionMode === "MODE_B" ? cacheKeyOptions.modeBProviderOrder : cacheKeyOptions.modeAProviderOrder;
-    const modeBEngine = String(process.env.LV_MODE_B_ENGINE || "custom").toLowerCase() === "external" ? "external" : "custom";
-    const outputStrategyVersion =
-      executionMode === "MODE_B"
-        ? modeBEngine === "external"
-          ? `${cacheKeyOptions.modeBOutputVersion}_external`
-          : cacheKeyOptions.modeBOutputVersion
-        : cacheKeyOptions.modeAOutputVersion;
-    const cacheBypass =
-      Boolean(simulateFailBeforeProvider) ||
-      Boolean(simulateFailTier) ||
-      Boolean(simulateFailTiers?.length) ||
-      Boolean(simulateRetryOnceTiers?.length) ||
-      Number(simulateProviderLatencyMs || 0) > 0 ||
-      Number(simulateLayoutMissingAnchorCount || 0) > 0 ||
-      Number(simulateLayoutOverflowCount || 0) > 0;
-    const cacheDescriptor = buildOutputCacheKey({
-      inputBuffer: inBytes,
-      ownerId: job.owner_id || "",
-      sourceLang: job.source_lang || "",
-      targetLang: job.target_lang || "",
-      providerMode: executionMode,
-      providerFamily,
-      outputStrategyVersion,
-      routeMode: route.mode
-    });
-    let cacheKey = cacheDescriptor.key;
-    const cacheKeyShort = shortCacheKey(cacheKey);
-    let lastError = "ROUTER_NO_FALLBACK_PATH";
-    let chargeResult =
-      job.billing?.charged && job.billing?.billing_request_id
-        ? {
-            billing_request_id: job.billing.billing_request_id,
-            charged_units: Number(job.billing.charged_units || unitsToCharge),
-            already_charged: true
-          }
-        : null;
+    let lastError = "PROVIDER_UPSTREAM_5XX";
+    let chargeResult = null;
     let firstProviderRequestAttempted = false;
+
+    try {
+      if (workerDelayMs > 0) {
+        await sleep(workerDelayMs);
+      }
+
+      const inBytes = await deps.storage.readFile(job.input_file_path);
+      const executionMode = (job.provider_mode || "MODE_A").toUpperCase();
+      await deps.jobs.appendJobEvent(job.id, job.owner_id, executionMode === "MODE_B" ? "MODE_B_SELECTED" : "MODE_A_SELECTED", {
+        worker_id: workerId || null,
+        request_id: runRequestId,
+        mode: executionMode
+      });
+      const route = planRoute({ packageName: job.package_name || "free", mode: job.mode || "readable" });
+      const baseStepUnits = estimateStepUnits({ fileSizeBytes: inBytes.length, mode: route.mode });
+      const spentUnits = Number(job.billing?.charged_units || 0);
+      const unitsToCharge = Math.max(1, baseStepUnits);
+      const cacheKeyOptions = deps.cacheKeyOptions || {
+        modeAProviderOrder: process.env.LV_PROVIDER_MODE_A_ORDER || "deepl,google",
+        modeBProviderOrder: process.env.LV_MODE_B_PROVIDER_ORDER || "openai,groq",
+        modeAOutputVersion: "mode_a_pdf_direct_v1",
+        modeBOutputVersion: "mode_b_layout_v2"
+      };
+      const outputCache = deps.outputCache || null;
+      const providerFamily = executionMode === "MODE_B" ? cacheKeyOptions.modeBProviderOrder : cacheKeyOptions.modeAProviderOrder;
+      const modeBEngine = String(process.env.LV_MODE_B_ENGINE || "custom").toLowerCase() === "external" ? "external" : "custom";
+      const outputStrategyVersion =
+        executionMode === "MODE_B"
+          ? modeBEngine === "external"
+            ? `${cacheKeyOptions.modeBOutputVersion}_external`
+            : cacheKeyOptions.modeBOutputVersion
+          : cacheKeyOptions.modeAOutputVersion;
+      const cacheBypass =
+        Boolean(simulateFailBeforeProvider) ||
+        Boolean(simulateFailTier) ||
+        Boolean(simulateFailTiers?.length) ||
+        Boolean(simulateRetryOnceTiers?.length) ||
+        Number(simulateProviderLatencyMs || 0) > 0 ||
+        Number(simulateLayoutMissingAnchorCount || 0) > 0 ||
+        Number(simulateLayoutOverflowCount || 0) > 0;
+      const cacheDescriptor = buildOutputCacheKey({
+        inputBuffer: inBytes,
+        ownerId: job.owner_id || "",
+        sourceLang: job.source_lang || "",
+        targetLang: job.target_lang || "",
+        providerMode: executionMode,
+        providerFamily,
+        outputStrategyVersion,
+        routeMode: route.mode
+      });
+      let cacheKey = cacheDescriptor.key;
+      const cacheKeyShort = shortCacheKey(cacheKey);
+      lastError = "ROUTER_NO_FALLBACK_PATH";
+      chargeResult =
+        job.billing?.charged && job.billing?.billing_request_id
+          ? {
+              billing_request_id: job.billing.billing_request_id,
+              charged_units: Number(job.billing.charged_units || unitsToCharge),
+              already_charged: true
+            }
+          : null;
+      firstProviderRequestAttempted = false;
 
     if (outputCache && !cacheBypass) {
       bump("cache_lookup_total");
@@ -392,7 +437,13 @@ export function createJobExecutor(deps) {
             });
           } catch (err) {
             const errorCode = deriveBillingErrorCode(err);
-            return { ok: false, error: errorCode };
+            return failJobTerminal({
+              job,
+              runRequestId,
+              errorCode,
+              chargeResult: null,
+              firstProviderRequestAttempted: false
+            });
           }
         }
 
@@ -684,28 +735,13 @@ export function createJobExecutor(deps) {
         }
       }
 
-      const finalJob = await deps.jobs.get(job.id);
-      const finalBilling = finalJob?.billing || job.billing || {};
-      await deps.jobs.update(job.id, {
-        status: "FAILED",
-        progress_pct: 100,
-        error_code: lastError,
-        quality_gate_passed: null,
-        quality_gate_reason: null,
-        ux_hint: mapErrorToUxHint(lastError),
-        billing: {
-          ...finalBilling,
-          request_id: runRequestId,
-          charge_state:
-            finalBilling.charge_state ||
-            (chargeResult && firstProviderRequestAttempted ? "CHARGED" : "NOT_CHARGED")
-        }
+      return failJobTerminal({
+        job,
+        runRequestId,
+        errorCode: lastError,
+        chargeResult,
+        firstProviderRequestAttempted
       });
-      await deps.jobs.appendJobEvent(job.id, job.owner_id, "JOB_FAILED", {
-        error_code: lastError
-      });
-      bump("jobs_failed_total");
-      return { ok: false, error: lastError };
     }
 
     const effectiveChain = route.mode === "strict" ? [route.chain[0]] : route.chain;
@@ -772,7 +808,13 @@ export function createJobExecutor(deps) {
           });
         } catch (err) {
           const errorCode = deriveBillingErrorCode(err);
-          return { ok: false, error: errorCode };
+          return failJobTerminal({
+            job,
+            runRequestId,
+            errorCode,
+            chargeResult: null,
+            firstProviderRequestAttempted: false
+          });
         }
       }
 
@@ -918,28 +960,25 @@ export function createJobExecutor(deps) {
       }
     }
 
-    const finalJob = await deps.jobs.get(job.id);
-    const finalBilling = finalJob?.billing || job.billing || {};
-    await deps.jobs.update(job.id, {
-      status: "FAILED",
-      progress_pct: 100,
-      error_code: lastError,
-      quality_gate_passed: lastError === "LAYOUT_QUALITY_GATE_BLOCK" ? false : null,
-      quality_gate_reason: lastError === "LAYOUT_QUALITY_GATE_BLOCK" ? "strict_layout_guard" : null,
-      ux_hint: mapErrorToUxHint(lastError),
-      billing: {
-        ...finalBilling,
-        request_id: runRequestId,
-        charge_state:
-          finalBilling.charge_state ||
-          (chargeResult && firstProviderRequestAttempted ? "CHARGED" : "NOT_CHARGED")
-      }
+    return failJobTerminal({
+      job,
+      runRequestId,
+      errorCode: lastError,
+      chargeResult,
+      firstProviderRequestAttempted,
+      qualityGatePassed: lastError === "LAYOUT_QUALITY_GATE_BLOCK" ? false : null,
+      qualityGateReason: lastError === "LAYOUT_QUALITY_GATE_BLOCK" ? "strict_layout_guard" : null
     });
-    await deps.jobs.appendJobEvent(job.id, job.owner_id, "JOB_FAILED", {
-      error_code: lastError
-    });
-    bump("jobs_failed_total");
-    return { ok: false, error: lastError };
+    } catch (err) {
+      const fallbackErrorCode = deriveBillingErrorCode(err);
+      return failJobTerminal({
+        job,
+        runRequestId,
+        errorCode: fallbackErrorCode || "PROVIDER_UPSTREAM_ERROR",
+        chargeResult,
+        firstProviderRequestAttempted
+      });
+    }
   };
 }
 
