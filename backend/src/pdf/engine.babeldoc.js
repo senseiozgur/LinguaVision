@@ -215,7 +215,7 @@ export function createBabelDocEngine() {
                 lang_out: "",
                 watermark_output_mode: String(process.env.LV_BABELDOC_WATERMARK_MODE || "no_watermark").trim().toLowerCase() || "no_watermark",
                 primary_font_family: null,
-                disable_rich_text_translate: parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", false),
+                disable_rich_text_translate: parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", true),
                 split_short_lines: parseBooleanEnv("LV_BABELDOC_SPLIT_SHORT_LINES", false),
                 short_line_split_factor: Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8),
                 disable_content_filter_hint: parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true),
@@ -236,7 +236,7 @@ export function createBabelDocEngine() {
         const primaryFontFamily = ["serif", "sans-serif", "script"].includes(primaryFontFamilyRaw)
           ? primaryFontFamilyRaw
           : "";
-        const disableRichTextTranslate = parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", false);
+        const disableRichTextTranslate = parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", true);
         const splitShortLines = parseBooleanEnv("LV_BABELDOC_SPLIT_SHORT_LINES", false);
         const shortLineSplitFactor = Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8);
         const disableContentFilterHint = parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true);
@@ -417,7 +417,7 @@ export function createBabelDocEngine() {
               lang_out: String(targetLang || "").trim(),
               watermark_output_mode: String(process.env.LV_BABELDOC_WATERMARK_MODE || "no_watermark").trim().toLowerCase() || "no_watermark",
               primary_font_family: null,
-              disable_rich_text_translate: parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", false),
+              disable_rich_text_translate: parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", true),
               split_short_lines: parseBooleanEnv("LV_BABELDOC_SPLIT_SHORT_LINES", false),
               short_line_split_factor: Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8),
               disable_content_filter_hint: parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true),
