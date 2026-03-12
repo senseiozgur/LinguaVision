@@ -16,6 +16,7 @@ function mapErrorToUxHint(errorCode) {
   if (errorCode === "COST_LIMIT_STOP") return "cost_limit_partial_result";
   if (errorCode && errorCode.startsWith("BILLING_")) return "retry_later";
   if (errorCode === "LAYOUT_QUALITY_GATE_BLOCK") return "switch_mode_or_fix_pdf";
+  if (errorCode === "MODE_B_TRANSLATION_REALITY_FAILED") return "retry_or_switch_provider";
   if (errorCode && errorCode.startsWith("PROVIDER_")) return "retry_or_fallback";
   return "review_job_error";
 }
@@ -46,6 +47,54 @@ function normalizeEngineErrorCode(code) {
   if (value === "PROVIDER_AUTH_ERROR") return value;
   if (value === "PROVIDER_UPSTREAM_ERROR") return value;
   return "PROVIDER_UPSTREAM_ERROR";
+}
+
+function parseBooleanEnv(name, fallback = false) {
+  const raw = process.env[name];
+  if (raw == null || raw === "") return fallback;
+  const v = String(raw).trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes" || v === "on";
+}
+
+function toFiniteNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function evaluateExternalTranslationReality(metrics = {}) {
+  const maxCopiedSegments = Math.max(0, toFiniteNumber(process.env.LV_MODE_B_MAX_COPIED_SOURCE_SEGMENTS, 2));
+  const maxSourceTokenOverlap = Math.min(0.999, Math.max(0, toFiniteNumber(process.env.LV_MODE_B_MAX_SOURCE_TOKEN_OVERLAP, 0.92)));
+  const maxSourceTrigramJaccard = Math.min(
+    0.999,
+    Math.max(0, toFiniteNumber(process.env.LV_MODE_B_MAX_SOURCE_TRIGRAM_JACCARD, 0.88))
+  );
+  const copiedSourceSegments = Math.max(0, toFiniteNumber(metrics.copied_source_segments_total, 0));
+  const sourceTokenOverlap = Math.max(0, toFiniteNumber(metrics.source_output_token_overlap_ratio, 0));
+  const sourceTrigramJaccard = Math.max(0, toFiniteNumber(metrics.source_output_trigram_jaccard, 0));
+
+  const reasons = [];
+  if (copiedSourceSegments > maxCopiedSegments) reasons.push("copied_source_segments_exceeded");
+  if (sourceTokenOverlap >= maxSourceTokenOverlap && sourceTrigramJaccard >= maxSourceTrigramJaccard) {
+    reasons.push("source_similarity_exceeded");
+  }
+
+  return {
+    ok: reasons.length === 0,
+    reasons,
+    thresholds: {
+      max_copied_source_segments: maxCopiedSegments,
+      max_source_token_overlap: maxSourceTokenOverlap,
+      max_source_trigram_jaccard: maxSourceTrigramJaccard
+    },
+    metrics: {
+      copied_source_segments_total: copiedSourceSegments,
+      source_output_token_overlap_ratio: sourceTokenOverlap,
+      source_output_trigram_jaccard: sourceTrigramJaccard,
+      copied_source_segments_by_page: Array.isArray(metrics.copied_source_segments_by_page)
+        ? metrics.copied_source_segments_by_page
+        : []
+    }
+  };
 }
 
 function toNormalizedErrorClass(raw = "") {
@@ -468,6 +517,7 @@ export function createJobExecutor(deps) {
         }
 
         if (modeBEngine === "external") {
+          const enforceTranslationReality = parseBooleanEnv("LV_MODE_B_ENFORCE_TRANSLATION_REALITY", true);
           const runtimeValidation = await engineAdapter.validateRuntime?.();
           let runtimeInvalid = false;
           if (runtimeValidation?.ok) {
@@ -560,6 +610,34 @@ export function createJobExecutor(deps) {
           } else {
             const providerUsed = String(engineResult.engine_used || "babeldoc");
             bumpProviderUsage(providerUsed);
+            const translationReality = evaluateExternalTranslationReality(engineResult.metrics || {});
+            if (enforceTranslationReality && !translationReality.ok) {
+              lastError = "MODE_B_TRANSLATION_REALITY_FAILED";
+              await deps.jobs.appendJobEvent(job.id, job.owner_id, "ENGINE_RUN_FAILED", {
+                worker_id: workerId || null,
+                request_id: runRequestId,
+                mode: executionMode,
+                engine: "babeldoc",
+                engine_config: engineResult?.metrics?.engine_config || null,
+                runtime_validation: engineResult?.metrics?.runtime_validation || null,
+                runtime_error_class: "MODE_B_TRANSLATION_REALITY_FAILED",
+                error_code: lastError,
+                duration_ms: Date.now() - engineStartedAt,
+                translation_reality: {
+                  enforced: true,
+                  ...translationReality
+                }
+              });
+              await deps.jobs.appendJobEvent(job.id, job.owner_id, "PROVIDER_ATTEMPT_FINISHED", {
+                worker_id: workerId || null,
+                request_id: runRequestId,
+                mode: executionMode,
+                attempt_index: 1,
+                provider: "babeldoc",
+                outcome: "failed",
+                normalized_error_class: "MODE_B_TRANSLATION_REALITY_FAILED"
+              });
+            } else {
             const layoutMetrics = {
               reflow_strategy: "mode_b_engine_external",
               page_count: Number(engineResult.metrics?.page_count || 0),
@@ -594,6 +672,10 @@ export function createJobExecutor(deps) {
               runtime_validation: engineResult?.metrics?.runtime_validation || null,
               page_count: layoutMetrics.page_count,
               overflow_flag: layoutMetrics.overflow_flag,
+              translation_reality: {
+                enforced: enforceTranslationReality,
+                ...translationReality
+              },
               duration_ms: Date.now() - engineStartedAt
             });
             await deps.jobs.appendJobEvent(job.id, job.owner_id, "PROVIDER_ATTEMPT_FINISHED", {
@@ -643,6 +725,7 @@ export function createJobExecutor(deps) {
             });
             bump("jobs_ready_total");
             return { ok: true };
+            }
           }
           }
         } else {
