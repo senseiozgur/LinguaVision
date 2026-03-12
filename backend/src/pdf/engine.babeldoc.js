@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "../../..");
 const BABELDOC_RUNNER = path.resolve(REPO_ROOT, "scripts/babeldoc_runner.py");
+const DEFAULT_RUNTIME_TIMEOUT_MS = 8000;
 
 function parseBooleanEnv(name, fallback = false) {
   const raw = process.env[name];
@@ -25,6 +26,37 @@ function normalizeEngineError(text) {
     return "PROVIDER_AUTH_ERROR";
   }
   return "PROVIDER_UPSTREAM_ERROR";
+}
+
+function parseRequiredRuntime(raw = "3.12") {
+  const t = String(raw || "").trim();
+  const match = t.match(/^(\d+)\.(\d+)$/);
+  if (!match) return { major: 3, minor: 12, raw: "3.12" };
+  return { major: Number(match[1]), minor: Number(match[2]), raw: t };
+}
+
+function parseVersionTuple(raw = "") {
+  const match = String(raw || "").match(/(\d+)\.(\d+)(?:\.(\d+))?/);
+  if (!match) return null;
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3] || 0),
+    raw: match[0]
+  };
+}
+
+function isSameMajorMinor(a, b) {
+  if (!a || !b) return false;
+  return Number(a.major) === Number(b.major) && Number(a.minor) === Number(b.minor);
+}
+
+function safeParseJson(text = "") {
+  try {
+    return JSON.parse(String(text || ""));
+  } catch {
+    return null;
+  }
 }
 
 function runPython({ pythonCmd, args, env, timeoutMs }) {
@@ -75,6 +107,45 @@ function buildPythonPath(existing = "") {
   return `${babeldocPath}${sep}${existing}`;
 }
 
+function parseProviderOrder(raw = "") {
+  return String(raw || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function resolveOpenAiCompatibleRuntimeConfig(env) {
+  const providerOrder = parseProviderOrder(env.LV_MODE_B_PROVIDER_ORDER || "openai,groq");
+  const openAi = {
+    provider: "openai",
+    apiKey: String(env.OPENAI_API_KEY || "").trim(),
+    model: String(env.OPENAI_MODEL || "").trim() || "gpt-4o-mini",
+    baseUrl: String(env.OPENAI_BASE_URL || "").trim() || null
+  };
+  const groq = {
+    provider: "groq",
+    apiKey: String(env.GROQ_API_KEY || "").trim(),
+    model: String(env.GROQ_MODEL || "").trim() || "llama-3.1-8b-instant",
+    baseUrl: String(env.GROQ_BASE_URL || "").trim() || "https://api.groq.com/openai/v1"
+  };
+  const registry = {
+    openai: openAi.apiKey ? openAi : null,
+    groq: groq.apiKey ? groq : null
+  };
+
+  for (const name of providerOrder) {
+    if (registry[name]) return registry[name];
+  }
+  if (registry.openai) return registry.openai;
+  if (registry.groq) return registry.groq;
+  return {
+    provider: providerOrder[0] || "openai",
+    apiKey: "",
+    model: openAi.model,
+    baseUrl: openAi.baseUrl
+  };
+}
+
 function parseRunnerJson(stdoutText = "") {
   const raw = String(stdoutText || "");
   const lines = raw
@@ -93,8 +164,78 @@ function parseRunnerJson(stdoutText = "") {
   return null;
 }
 
+async function validatePythonRuntime({ pythonCmd, env }) {
+  const required = parseRequiredRuntime(process.env.LV_PDF_ENGINE_REQUIRED_PYTHON || "3.12");
+  const probeScript =
+    "import sys, json; print(json.dumps({'executable': sys.executable, 'version': sys.version.split()[0]}), flush=True)";
+  const probe = await runPython({
+    pythonCmd,
+    args: ["-c", probeScript],
+    env,
+    timeoutMs: Math.max(1000, Number(process.env.LV_PDF_ENGINE_RUNTIME_TIMEOUT_MS || DEFAULT_RUNTIME_TIMEOUT_MS))
+  });
+
+  const validation = {
+    ok: false,
+    required_python: required.raw,
+    python_cmd: pythonCmd,
+    python_executable: null,
+    python_version: null,
+    runtime_error_class: null,
+    runtime_error_detail: null
+  };
+
+  if (probe.timedOut) {
+    validation.runtime_error_class = "ENGINE_RUNTIME_TIMEOUT";
+    validation.runtime_error_detail = "runtime_probe_timeout";
+    return validation;
+  }
+  if (probe.code === -1) {
+    validation.runtime_error_class = "ENGINE_RUNTIME_SPAWN_FAILED";
+    validation.runtime_error_detail = String(probe.stderr || "runtime_probe_spawn_failed").trim();
+    return validation;
+  }
+  if (probe.code !== 0) {
+    validation.runtime_error_class = "ENGINE_RUNTIME_PROBE_FAILED";
+    validation.runtime_error_detail = String(`${probe.stdout}\n${probe.stderr}`).trim();
+    return validation;
+  }
+
+  const payload = safeParseJson(String(probe.stdout || "").trim());
+  const runtimeVersion = parseVersionTuple(payload?.version || "");
+  validation.python_executable = payload?.executable || null;
+  validation.python_version = payload?.version || null;
+
+  if (!runtimeVersion) {
+    validation.runtime_error_class = "ENGINE_RUNTIME_VERSION_PARSE_FAILED";
+    validation.runtime_error_detail = String(probe.stdout || "").trim();
+    return validation;
+  }
+
+  if (!isSameMajorMinor(runtimeVersion, required)) {
+    validation.runtime_error_class = "ENGINE_RUNTIME_VERSION_MISMATCH";
+    validation.runtime_error_detail = `required=${required.raw}; actual=${runtimeVersion.raw}`;
+    return validation;
+  }
+
+  validation.ok = true;
+  return validation;
+}
+
 export function createBabelDocEngine() {
   return {
+    async validateRuntime() {
+      const pythonCmd = process.env.LV_PDF_ENGINE_PYTHON || process.env.LV_PDF_EXTRACTOR_PYTHON || "python";
+      return validatePythonRuntime({
+        pythonCmd,
+        env: {
+          ...process.env,
+          PYTHONIOENCODING: "utf-8",
+          PYTHONUTF8: "1",
+          PYTHONPATH: buildPythonPath(process.env.PYTHONPATH || "")
+        }
+      });
+    },
     async translatePdf({ inputBuffer, sourceLang, targetLang, options = {} }) {
       const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "lv-babeldoc-"));
       const inputPath = path.join(tmpDir, "input.pdf");
@@ -113,7 +254,7 @@ export function createBabelDocEngine() {
                 lang_out: "",
                 watermark_output_mode: String(process.env.LV_BABELDOC_WATERMARK_MODE || "no_watermark").trim().toLowerCase() || "no_watermark",
                 primary_font_family: null,
-                disable_rich_text_translate: parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", false),
+                disable_rich_text_translate: parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", true),
                 split_short_lines: parseBooleanEnv("LV_BABELDOC_SPLIT_SHORT_LINES", false),
                 short_line_split_factor: Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8),
                 disable_content_filter_hint: parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true),
@@ -134,7 +275,7 @@ export function createBabelDocEngine() {
         const primaryFontFamily = ["serif", "sans-serif", "script"].includes(primaryFontFamilyRaw)
           ? primaryFontFamilyRaw
           : "";
-        const disableRichTextTranslate = parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", false);
+        const disableRichTextTranslate = parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", true);
         const splitShortLines = parseBooleanEnv("LV_BABELDOC_SPLIT_SHORT_LINES", false);
         const shortLineSplitFactor = Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8);
         const disableContentFilterHint = parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true);
@@ -159,14 +300,47 @@ export function createBabelDocEngine() {
           insecure_tls: insecureTls,
           allow_source_fallback_on_repetition: allowSourceFallbackOnRepetition
         };
+        const pythonCmd = process.env.LV_PDF_ENGINE_PYTHON || process.env.LV_PDF_EXTRACTOR_PYTHON || "python";
+        const translatorConfig = resolveOpenAiCompatibleRuntimeConfig(process.env);
+        const runtimeEnv = {
+          ...process.env,
+          PYTHONIOENCODING: "utf-8",
+          PYTHONUTF8: "1",
+          PYTHONPATH: buildPythonPath(process.env.PYTHONPATH || ""),
+          OPENAI_API_KEY: translatorConfig.apiKey || "",
+          OPENAI_MODEL: translatorConfig.model || "gpt-4o-mini",
+          OPENAI_BASE_URL: translatorConfig.baseUrl || ""
+        };
+        const runtimeValidation = await validatePythonRuntime({
+          pythonCmd,
+          env: runtimeEnv
+        });
+        if (!runtimeValidation.ok) {
+          return {
+            ok: false,
+            engine_used: "babeldoc",
+            error: "PROVIDER_UPSTREAM_ERROR",
+            metrics: {
+              engine_config: effectiveConfig,
+              runtime_validation: runtimeValidation,
+              runtime_error_class: runtimeValidation.runtime_error_class
+            }
+          };
+        }
         console.log("BABELDOC_ENGINE_CONFIG", JSON.stringify({
           job_id: String(options.jobId || ""),
           request_id: String(options.requestId || ""),
-          ...effectiveConfig
+          ...effectiveConfig,
+          provider: translatorConfig.provider,
+          openai_base_url: translatorConfig.baseUrl || null,
+          openai_model: translatorConfig.model || null,
+          python_executable: runtimeValidation.python_executable || pythonCmd,
+          python_version: runtimeValidation.python_version || null,
+          required_python: runtimeValidation.required_python,
+          engine_concurrency: options?.concurrency || null
         }));
 
         await fs.writeFile(inputPath, inputBuffer);
-        const pythonCmd = process.env.LV_PDF_ENGINE_PYTHON || process.env.LV_PDF_EXTRACTOR_PYTHON || "python";
         const timeoutMs = Math.max(10000, Number(process.env.LV_MODE_B_ENGINE_TIMEOUT_MS || 600000));
         const runnerArgs = [
           BABELDOC_RUNNER,
@@ -179,7 +353,7 @@ export function createBabelDocEngine() {
           "--target-lang",
           resolvedTargetLang,
           "--openai-model",
-          String(process.env.OPENAI_MODEL || "gpt-4o-mini"),
+          String(translatorConfig.model || "gpt-4o-mini"),
           "--job-id",
           String(options.jobId || "")
         ];
@@ -201,12 +375,7 @@ export function createBabelDocEngine() {
           pythonCmd,
           args: runnerArgs,
           timeoutMs,
-          env: {
-            ...process.env,
-            PYTHONIOENCODING: "utf-8",
-            PYTHONUTF8: "1",
-            PYTHONPATH: buildPythonPath(process.env.PYTHONPATH || "")
-          }
+          env: runtimeEnv
         });
 
         if (run.timedOut) {
@@ -214,7 +383,23 @@ export function createBabelDocEngine() {
             ok: false,
             engine_used: "babeldoc",
             error: "PROVIDER_TIMEOUT",
-            metrics: { engine_config: effectiveConfig }
+            metrics: {
+              engine_config: effectiveConfig,
+              runtime_validation: runtimeValidation,
+              runtime_error_class: "ENGINE_SUBPROCESS_TIMEOUT"
+            }
+          };
+        }
+        if (run.code === -1) {
+          return {
+            ok: false,
+            engine_used: "babeldoc",
+            error: "PROVIDER_UPSTREAM_ERROR",
+            metrics: {
+              engine_config: effectiveConfig,
+              runtime_validation: runtimeValidation,
+              runtime_error_class: "ENGINE_SUBPROCESS_SPAWN_FAILED"
+            }
           };
         }
         if (run.code !== 0) {
@@ -223,7 +408,11 @@ export function createBabelDocEngine() {
             ok: false,
             engine_used: "babeldoc",
             error: normalizeEngineError(joined),
-            metrics: { engine_config: effectiveConfig }
+            metrics: {
+              engine_config: effectiveConfig,
+              runtime_validation: runtimeValidation,
+              runtime_error_class: "ENGINE_SUBPROCESS_NONZERO"
+            }
           };
         }
         let payload = {};
@@ -233,7 +422,11 @@ export function createBabelDocEngine() {
             ok: false,
             engine_used: "babeldoc",
             error: "PROVIDER_UPSTREAM_ERROR",
-            metrics: { engine_config: effectiveConfig }
+            metrics: {
+              engine_config: effectiveConfig,
+              runtime_validation: runtimeValidation,
+              runtime_error_class: "ENGINE_OUTPUT_PARSE_FAILED"
+            }
           };
         }
         if (!payload.ok) {
@@ -241,7 +434,11 @@ export function createBabelDocEngine() {
             ok: false,
             engine_used: "babeldoc",
             error: normalizeEngineError(payload.error || payload.error_detail || ""),
-            metrics: { engine_config: effectiveConfig }
+            metrics: {
+              engine_config: effectiveConfig,
+              runtime_validation: runtimeValidation,
+              runtime_error_class: "ENGINE_RUNTIME_EXECUTION_FAILED"
+            }
           };
         }
         const outputBuffer = await fs.readFile(outputPath);
@@ -251,7 +448,8 @@ export function createBabelDocEngine() {
           outputBuffer,
           metrics: {
             ...(payload.metrics || {}),
-            engine_config: (payload.metrics && payload.metrics.engine_config) || effectiveConfig
+            engine_config: (payload.metrics && payload.metrics.engine_config) || effectiveConfig,
+            runtime_validation: runtimeValidation
           }
         };
       } catch (err) {
@@ -265,7 +463,7 @@ export function createBabelDocEngine() {
               lang_out: String(targetLang || "").trim(),
               watermark_output_mode: String(process.env.LV_BABELDOC_WATERMARK_MODE || "no_watermark").trim().toLowerCase() || "no_watermark",
               primary_font_family: null,
-              disable_rich_text_translate: parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", false),
+              disable_rich_text_translate: parseBooleanEnv("LV_BABELDOC_DISABLE_RICH_TEXT_TRANSLATE", true),
               split_short_lines: parseBooleanEnv("LV_BABELDOC_SPLIT_SHORT_LINES", false),
               short_line_split_factor: Number(process.env.LV_BABELDOC_SHORT_LINE_SPLIT_FACTOR || 0.8),
               disable_content_filter_hint: parseBooleanEnv("LV_BABELDOC_DISABLE_CONTENT_FILTER_HINT", true),
@@ -275,7 +473,8 @@ export function createBabelDocEngine() {
               allow_source_fallback_on_repetition: parseBooleanEnv(
                 "LV_BABELDOC_ALLOW_SOURCE_FALLBACK_ON_REPETITION",
                 false
-              )
+              ),
+              runtime_error_class: "ENGINE_RUNTIME_EXCEPTION"
             }
           }
         };

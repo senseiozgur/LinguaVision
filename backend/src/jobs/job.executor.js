@@ -16,6 +16,7 @@ function mapErrorToUxHint(errorCode) {
   if (errorCode === "COST_LIMIT_STOP") return "cost_limit_partial_result";
   if (errorCode && errorCode.startsWith("BILLING_")) return "retry_later";
   if (errorCode === "LAYOUT_QUALITY_GATE_BLOCK") return "switch_mode_or_fix_pdf";
+  if (errorCode === "MODE_B_TRANSLATION_REALITY_FAILED") return "retry_or_switch_provider";
   if (errorCode && errorCode.startsWith("PROVIDER_")) return "retry_or_fallback";
   return "review_job_error";
 }
@@ -45,6 +46,61 @@ function normalizeEngineErrorCode(code) {
   if (value === "PROVIDER_RATE_LIMIT") return value;
   if (value === "PROVIDER_AUTH_ERROR") return value;
   if (value === "PROVIDER_UPSTREAM_ERROR") return value;
+  return "PROVIDER_UPSTREAM_ERROR";
+}
+
+function parseBooleanEnv(name, fallback = false) {
+  const raw = process.env[name];
+  if (raw == null || raw === "") return fallback;
+  const v = String(raw).trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes" || v === "on";
+}
+
+function toFiniteNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function evaluateExternalTranslationReality(metrics = {}) {
+  const maxCopiedSegments = Math.max(0, toFiniteNumber(process.env.LV_MODE_B_MAX_COPIED_SOURCE_SEGMENTS, 2));
+  const maxSourceTokenOverlap = Math.min(0.999, Math.max(0, toFiniteNumber(process.env.LV_MODE_B_MAX_SOURCE_TOKEN_OVERLAP, 0.92)));
+  const maxSourceTrigramJaccard = Math.min(
+    0.999,
+    Math.max(0, toFiniteNumber(process.env.LV_MODE_B_MAX_SOURCE_TRIGRAM_JACCARD, 0.88))
+  );
+  const copiedSourceSegments = Math.max(0, toFiniteNumber(metrics.copied_source_segments_total, 0));
+  const sourceTokenOverlap = Math.max(0, toFiniteNumber(metrics.source_output_token_overlap_ratio, 0));
+  const sourceTrigramJaccard = Math.max(0, toFiniteNumber(metrics.source_output_trigram_jaccard, 0));
+
+  const reasons = [];
+  if (copiedSourceSegments > maxCopiedSegments) reasons.push("copied_source_segments_exceeded");
+  if (sourceTokenOverlap >= maxSourceTokenOverlap && sourceTrigramJaccard >= maxSourceTrigramJaccard) {
+    reasons.push("source_similarity_exceeded");
+  }
+
+  return {
+    ok: reasons.length === 0,
+    reasons,
+    thresholds: {
+      max_copied_source_segments: maxCopiedSegments,
+      max_source_token_overlap: maxSourceTokenOverlap,
+      max_source_trigram_jaccard: maxSourceTrigramJaccard
+    },
+    metrics: {
+      copied_source_segments_total: copiedSourceSegments,
+      source_output_token_overlap_ratio: sourceTokenOverlap,
+      source_output_trigram_jaccard: sourceTrigramJaccard,
+      copied_source_segments_by_page: Array.isArray(metrics.copied_source_segments_by_page)
+        ? metrics.copied_source_segments_by_page
+        : []
+    }
+  };
+}
+
+function toNormalizedErrorClass(raw = "") {
+  const value = String(raw || "").toUpperCase();
+  if (value.startsWith("PROVIDER_")) return value;
+  if (value.startsWith("ENGINE_")) return value;
   return "PROVIDER_UPSTREAM_ERROR";
 }
 
@@ -280,6 +336,7 @@ export function createJobExecutor(deps) {
         mode: executionMode
       });
       const route = planRoute({ packageName: job.package_name || "free", mode: job.mode || "readable" });
+      const providerRoutingSnapshot = deps.providerAdapter?.getRoutingSnapshot?.() || {};
       const baseStepUnits = estimateStepUnits({ fileSizeBytes: inBytes.length, mode: route.mode });
       const spentUnits = Number(job.billing?.charged_units || 0);
       const unitsToCharge = Math.max(1, baseStepUnits);
@@ -292,6 +349,18 @@ export function createJobExecutor(deps) {
       const outputCache = deps.outputCache || null;
       const providerFamily = executionMode === "MODE_B" ? cacheKeyOptions.modeBProviderOrder : cacheKeyOptions.modeAProviderOrder;
       const modeBEngine = String(process.env.LV_MODE_B_ENGINE || "custom").toLowerCase() === "external" ? "external" : "custom";
+      const modeBProviderRouting = providerRoutingSnapshot.mode_b || {
+        configured_order: String(cacheKeyOptions.modeBProviderOrder || "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        resolved_order: String(cacheKeyOptions.modeBProviderOrder || "")
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        exclusions: [],
+        selection_reason: "fallback_no_snapshot"
+      };
       const outputStrategyVersion =
         executionMode === "MODE_B"
           ? modeBEngine === "external"
@@ -448,11 +517,54 @@ export function createJobExecutor(deps) {
         }
 
         if (modeBEngine === "external") {
+          const enforceTranslationReality = parseBooleanEnv("LV_MODE_B_ENFORCE_TRANSLATION_REALITY", true);
+          const runtimeValidation = await engineAdapter.validateRuntime?.();
+          let runtimeInvalid = false;
+          if (runtimeValidation?.ok) {
+            await deps.jobs.appendJobEvent(job.id, job.owner_id, "ENGINE_RUNTIME_VALIDATED", {
+              worker_id: workerId || null,
+              request_id: runRequestId,
+              mode: executionMode,
+              engine: "babeldoc",
+              python_executable: runtimeValidation.python_executable || null,
+              python_version: runtimeValidation.python_version || null,
+              required_python: runtimeValidation.required_python || null
+            });
+          } else if (runtimeValidation) {
+            lastError = "PROVIDER_UPSTREAM_ERROR";
+            runtimeInvalid = true;
+            await deps.jobs.appendJobEvent(job.id, job.owner_id, "ENGINE_RUNTIME_INVALID", {
+              worker_id: workerId || null,
+              request_id: runRequestId,
+              mode: executionMode,
+              engine: "babeldoc",
+              runtime_error_class: runtimeValidation.runtime_error_class || "ENGINE_RUNTIME_INVALID",
+              runtime_error_detail: runtimeValidation.runtime_error_detail || null,
+              python_executable: runtimeValidation.python_executable || null,
+              python_version: runtimeValidation.python_version || null,
+              required_python: runtimeValidation.required_python || null
+            });
+            firstProviderRequestAttempted = true;
+          }
+
+          if (!runtimeInvalid) {
           await deps.jobs.appendJobEvent(job.id, job.owner_id, "ENGINE_SELECTED", {
             worker_id: workerId || null,
             request_id: runRequestId,
             mode: executionMode,
-            engine: "babeldoc"
+            engine: "babeldoc",
+            provider_candidates: modeBProviderRouting.configured_order || [],
+            resolved_order: modeBProviderRouting.resolved_order || [],
+            exclusions: modeBProviderRouting.exclusions || [],
+            selection_reason: "mode_b_engine_external"
+          });
+          await deps.jobs.appendJobEvent(job.id, job.owner_id, "PROVIDER_ATTEMPT_STARTED", {
+            worker_id: workerId || null,
+            request_id: runRequestId,
+            mode: executionMode,
+            attempt_index: 1,
+            provider: "babeldoc",
+            reason_for_attempt: "external_engine_primary"
           });
           await deps.jobs.appendJobEvent(job.id, job.owner_id, "ENGINE_RUN_STARTED", {
             worker_id: workerId || null,
@@ -474,25 +586,67 @@ export function createJobExecutor(deps) {
 
           if (!engineResult?.ok || !engineResult?.outputBuffer) {
             lastError = normalizeEngineErrorCode(engineResult?.error);
+            const runtimeErrorClass = String(engineResult?.metrics?.runtime_error_class || "");
             await deps.jobs.appendJobEvent(job.id, job.owner_id, "ENGINE_RUN_FAILED", {
               worker_id: workerId || null,
               request_id: runRequestId,
               mode: executionMode,
               engine: "babeldoc",
               engine_config: engineResult?.metrics?.engine_config || null,
+              runtime_validation: engineResult?.metrics?.runtime_validation || null,
+              runtime_error_class: runtimeErrorClass || null,
               error_code: lastError,
               duration_ms: Date.now() - engineStartedAt
+            });
+            await deps.jobs.appendJobEvent(job.id, job.owner_id, "PROVIDER_ATTEMPT_FINISHED", {
+              worker_id: workerId || null,
+              request_id: runRequestId,
+              mode: executionMode,
+              attempt_index: 1,
+              provider: "babeldoc",
+              outcome: "failed",
+              normalized_error_class: toNormalizedErrorClass(runtimeErrorClass || lastError)
             });
           } else {
             const providerUsed = String(engineResult.engine_used || "babeldoc");
             bumpProviderUsage(providerUsed);
+            const translationReality = evaluateExternalTranslationReality(engineResult.metrics || {});
+            if (enforceTranslationReality && !translationReality.ok) {
+              lastError = "MODE_B_TRANSLATION_REALITY_FAILED";
+              await deps.jobs.appendJobEvent(job.id, job.owner_id, "ENGINE_RUN_FAILED", {
+                worker_id: workerId || null,
+                request_id: runRequestId,
+                mode: executionMode,
+                engine: "babeldoc",
+                engine_config: engineResult?.metrics?.engine_config || null,
+                runtime_validation: engineResult?.metrics?.runtime_validation || null,
+                runtime_error_class: "MODE_B_TRANSLATION_REALITY_FAILED",
+                error_code: lastError,
+                duration_ms: Date.now() - engineStartedAt,
+                translation_reality: {
+                  enforced: true,
+                  ...translationReality
+                }
+              });
+              await deps.jobs.appendJobEvent(job.id, job.owner_id, "PROVIDER_ATTEMPT_FINISHED", {
+                worker_id: workerId || null,
+                request_id: runRequestId,
+                mode: executionMode,
+                attempt_index: 1,
+                provider: "babeldoc",
+                outcome: "failed",
+                normalized_error_class: "MODE_B_TRANSLATION_REALITY_FAILED"
+              });
+            } else {
             const layoutMetrics = {
               reflow_strategy: "mode_b_engine_external",
               page_count: Number(engineResult.metrics?.page_count || 0),
               block_count: null,
               overflow_count: Number(engineResult.metrics?.overflow_pages || 0),
               overflow_flag: Boolean(engineResult.metrics?.overflow_flag),
-              font_fallback: null
+              font_fallback: null,
+              engine_runtime: engineResult.metrics?.runtime_validation || null,
+              engine_metrics: engineResult.metrics || null
             };
             const outPath = await deps.storage.saveOutput(job.id, engineResult.outputBuffer);
             if (outputCache && !cacheBypass) {
@@ -515,9 +669,23 @@ export function createJobExecutor(deps) {
               mode: executionMode,
               engine: "babeldoc",
               engine_config: engineResult?.metrics?.engine_config || null,
+              runtime_validation: engineResult?.metrics?.runtime_validation || null,
               page_count: layoutMetrics.page_count,
               overflow_flag: layoutMetrics.overflow_flag,
+              translation_reality: {
+                enforced: enforceTranslationReality,
+                ...translationReality
+              },
               duration_ms: Date.now() - engineStartedAt
+            });
+            await deps.jobs.appendJobEvent(job.id, job.owner_id, "PROVIDER_ATTEMPT_FINISHED", {
+              worker_id: workerId || null,
+              request_id: runRequestId,
+              mode: executionMode,
+              attempt_index: 1,
+              provider: "babeldoc",
+              outcome: "success",
+              normalized_error_class: null
             });
             await deps.jobs.appendJobEvent(job.id, job.owner_id, "MODE_B_OUTPUT_GENERATED", {
               worker_id: workerId || null,
@@ -557,6 +725,8 @@ export function createJobExecutor(deps) {
             });
             bump("jobs_ready_total");
             return { ok: true };
+            }
+          }
           }
         } else {
         const extractionStartedAt = Date.now();
@@ -597,6 +767,35 @@ export function createJobExecutor(deps) {
 
         if (!translated?.ok || !Array.isArray(translated.translatedChunks)) {
           lastError = translated?.error || "PROVIDER_UPSTREAM_5XX";
+          await deps.jobs.appendJobEvent(job.id, job.owner_id, "ENGINE_SELECTED", {
+            worker_id: workerId || null,
+            request_id: runRequestId,
+            mode: executionMode,
+            engine: "custom_mode_b",
+            provider_candidates: translated?.routing?.configured_order || modeBProviderRouting.configured_order || [],
+            resolved_order: translated?.routing?.resolved_order || modeBProviderRouting.resolved_order || [],
+            exclusions: translated?.routing?.exclusions || modeBProviderRouting.exclusions || [],
+            selection_reason: translated?.routing?.selection_reason || "mode_b_custom_translation_path"
+          });
+          for (const attempt of translated?.provider_attempts || []) {
+            await deps.jobs.appendJobEvent(job.id, job.owner_id, "PROVIDER_ATTEMPT_STARTED", {
+              worker_id: workerId || null,
+              request_id: runRequestId,
+              mode: executionMode,
+              attempt_index: Number(attempt.attempt_index || attempt.attempt_no || 0),
+              provider: attempt.provider || null,
+              reason_for_attempt: attempt.reason_for_attempt || null
+            });
+            await deps.jobs.appendJobEvent(job.id, job.owner_id, "PROVIDER_ATTEMPT_FINISHED", {
+              worker_id: workerId || null,
+              request_id: runRequestId,
+              mode: executionMode,
+              attempt_index: Number(attempt.attempt_index || attempt.attempt_no || 0),
+              provider: attempt.provider || null,
+              outcome: attempt.status === "success" ? "success" : "failed",
+              normalized_error_class: attempt.error_code ? toNormalizedErrorClass(attempt.error_code) : null
+            });
+          }
           await deps.jobs.appendJobEvent(job.id, job.owner_id, "LLM_TRANSLATION_FAILED", {
             worker_id: workerId || null,
             request_id: runRequestId,
@@ -608,6 +807,35 @@ export function createJobExecutor(deps) {
           });
         } else {
           const providerUsed = translated.provider_used || null;
+          await deps.jobs.appendJobEvent(job.id, job.owner_id, "ENGINE_SELECTED", {
+            worker_id: workerId || null,
+            request_id: runRequestId,
+            mode: executionMode,
+            engine: "custom_mode_b",
+            provider_candidates: translated?.routing?.configured_order || modeBProviderRouting.configured_order || [],
+            resolved_order: translated?.routing?.resolved_order || modeBProviderRouting.resolved_order || [],
+            exclusions: translated?.routing?.exclusions || modeBProviderRouting.exclusions || [],
+            selection_reason: translated?.routing?.selection_reason || "mode_b_custom_translation_path"
+          });
+          for (const attempt of translated?.provider_attempts || []) {
+            await deps.jobs.appendJobEvent(job.id, job.owner_id, "PROVIDER_ATTEMPT_STARTED", {
+              worker_id: workerId || null,
+              request_id: runRequestId,
+              mode: executionMode,
+              attempt_index: Number(attempt.attempt_index || attempt.attempt_no || 0),
+              provider: attempt.provider || null,
+              reason_for_attempt: attempt.reason_for_attempt || null
+            });
+            await deps.jobs.appendJobEvent(job.id, job.owner_id, "PROVIDER_ATTEMPT_FINISHED", {
+              worker_id: workerId || null,
+              request_id: runRequestId,
+              mode: executionMode,
+              attempt_index: Number(attempt.attempt_index || attempt.attempt_no || 0),
+              provider: attempt.provider || null,
+              outcome: attempt.status === "success" ? "success" : "failed",
+              normalized_error_class: attempt.error_code ? toNormalizedErrorClass(attempt.error_code) : null
+            });
+          }
           bumpProviderUsage(providerUsed);
           await deps.jobs.appendJobEvent(job.id, job.owner_id, "PROVIDER_SELECTED", {
             worker_id: workerId || null,

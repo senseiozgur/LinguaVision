@@ -7,6 +7,55 @@ import shutil
 import statistics as py_statistics
 import sys
 from pathlib import Path
+from collections import Counter
+
+
+def _normalize_ws(text: str) -> str:
+    return re.sub(r"\s+", " ", str(text or "")).strip().lower()
+
+
+def _word_tokens(text: str) -> list[str]:
+    return re.findall(r"[a-zA-ZçğıöşüÇĞİÖŞÜß]+", str(text or "").lower())
+
+
+def _token_overlap_ratio(source_text: str, output_text: str) -> float:
+    src = set(_word_tokens(source_text))
+    out = set(_word_tokens(output_text))
+    if not src or not out:
+        return 0.0
+    return float(len(src & out)) / float(max(len(src), 1))
+
+
+def _trigram_jaccard(source_text: str, output_text: str) -> float:
+    left = _normalize_ws(source_text)
+    right = _normalize_ws(output_text)
+    if len(left) < 3 or len(right) < 3:
+        return 0.0
+    left_set = {left[i : i + 3] for i in range(len(left) - 2)}
+    right_set = {right[i : i + 3] for i in range(len(right) - 2)}
+    if not left_set or not right_set:
+        return 0.0
+    inter = len(left_set & right_set)
+    union = len(left_set | right_set)
+    return float(inter) / float(union) if union else 0.0
+
+
+def _source_segments(text: str) -> list[str]:
+    parts = [seg.strip() for seg in re.split(r"[.!?;:]\s+", str(text or ""))]
+    return [seg for seg in parts if len(seg) >= 35]
+
+
+def _count_copied_source_segments(source_text: str, output_text: str) -> tuple[int, list[str]]:
+    output_norm = _normalize_ws(output_text)
+    count = 0
+    samples = []
+    for seg in _source_segments(source_text):
+        seg_norm = _normalize_ws(seg)
+        if seg_norm and seg_norm in output_norm:
+            count += 1
+            if len(samples) < 8:
+                samples.append(seg[:180])
+    return int(count), samples
 
 
 def build_parser():
@@ -24,6 +73,55 @@ def build_parser():
     parser.add_argument("--short-line-split-factor", type=float, default=0.8)
     parser.add_argument("--disable-content-filter-hint", action="store_true")
     return parser
+
+
+def resolve_openai_compatible_env():
+    provider_order = [
+        part.strip().lower()
+        for part in str(os.getenv("LV_MODE_B_PROVIDER_ORDER", "openai,groq")).split(",")
+        if part.strip()
+    ]
+    openai_api_key = str(os.getenv("OPENAI_API_KEY", "")).strip()
+    openai_base_url = str(os.getenv("OPENAI_BASE_URL", "")).strip()
+    openai_model = str(os.getenv("OPENAI_MODEL", "")).strip()
+
+    groq_api_key = str(os.getenv("GROQ_API_KEY", "")).strip()
+    groq_base_url = str(os.getenv("GROQ_BASE_URL", "")).strip() or "https://api.groq.com/openai/v1"
+    groq_model = str(os.getenv("GROQ_MODEL", "")).strip() or "llama-3.1-8b-instant"
+
+    registry = {
+        "openai": {
+            "provider": "openai",
+            "api_key": openai_api_key,
+            "base_url": openai_base_url or None,
+            "model": openai_model or None,
+        }
+        if openai_api_key
+        else None,
+        "groq": {
+            "provider": "groq",
+            "api_key": groq_api_key,
+            "base_url": groq_base_url,
+            "model": groq_model,
+        }
+        if groq_api_key
+        else None,
+    }
+
+    selected = None
+    for provider_name in provider_order:
+        if registry.get(provider_name):
+            selected = registry[provider_name]
+            break
+    if selected is None:
+        selected = registry["openai"] or registry["groq"] or {
+            "provider": provider_order[0] if provider_order else "openai",
+            "api_key": "",
+            "base_url": openai_base_url or None,
+            "model": openai_model or None,
+        }
+
+    return selected
 
 
 async def run_translate(args):
@@ -113,12 +211,16 @@ async def run_translate(args):
     effective_config["tls_mode"] = tls_mode
     effective_config["ca_bundle_path"] = ca_bundle_path
     effective_config["insecure_tls"] = bool(insecure_tls)
+    openai_compatible = resolve_openai_compatible_env()
+    effective_config["provider"] = openai_compatible["provider"]
+    effective_config["openai_base_url"] = openai_compatible["base_url"]
+    effective_config["openai_model"] = openai_compatible["model"] or str(args.openai_model or "").strip() or None
     print(
         f"ENGINE_CONFIG {json.dumps(effective_config, ensure_ascii=False)}",
         file=sys.stderr
     )
 
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    api_key = openai_compatible["api_key"]
     if not api_key:
         return {"ok": False, "error": "OPENAI_API_KEY missing"}
 
@@ -135,8 +237,8 @@ async def run_translate(args):
         translator = OpenAITranslator(
             lang_in=source_lang,
             lang_out=target_lang,
-            model=args.openai_model,
-            base_url=os.getenv("OPENAI_BASE_URL") or None,
+            model=openai_compatible["model"] or args.openai_model,
+            base_url=openai_compatible["base_url"] or None,
             api_key=api_key,
             ignore_cache=True,
             enable_json_mode_if_requested=False,
@@ -408,13 +510,24 @@ async def run_translate(args):
     try:
         import pymupdf
 
+        source_doc = pymupdf.open(str(input_path))
         doc = pymupdf.open(str(output_path))
         page_count = doc.page_count
         visible_char_count = 0
         visible_cjk_count = 0
+        source_page_texts = []
+        output_page_texts = []
+        copied_by_page = []
         for i in range(doc.page_count):
             page = doc.load_page(i)
             text = page.get_text("text") or ""
+            source_text = ""
+            if i < source_doc.page_count:
+                source_text = source_doc.load_page(i).get_text("text") or ""
+            source_page_texts.append(source_text)
+            output_page_texts.append(text)
+            page_copied, _ = _count_copied_source_segments(source_text, text)
+            copied_by_page.append(int(page_copied))
             visible_char_count += len(text)
             for seg in page.get_texttrace():
                 if seg.get("type", None) == 3:
@@ -428,10 +541,23 @@ async def run_translate(args):
                         re.findall(r"[\u4e00-\u9fff]", "".join(chars))
                     )
         doc.close()
+        source_doc.close()
+        source_full_text = "\n".join(source_page_texts)
+        output_full_text = "\n".join(output_page_texts)
+        source_output_token_overlap_ratio = _token_overlap_ratio(source_full_text, output_full_text)
+        source_output_trigram_jaccard = _trigram_jaccard(source_full_text, output_full_text)
+        copied_source_segments_total, copied_examples = _count_copied_source_segments(
+            source_full_text, output_full_text
+        )
     except Exception:
         page_count = 0
         visible_char_count = 0
         visible_cjk_count = 0
+        source_output_token_overlap_ratio = 0.0
+        source_output_trigram_jaccard = 0.0
+        copied_source_segments_total = 0
+        copied_examples = []
+        copied_by_page = []
 
     visible_cjk_ratio = (
         float(visible_cjk_count) / float(visible_char_count)
@@ -458,12 +584,21 @@ async def run_translate(args):
             "page_count": int(page_count),
             "overflow_flag": False,
             "target_lang": target_lang,
-            "provider": "openai_compatible",
-            "model": str(args.openai_model or "").strip(),
+            "provider": str(openai_compatible["provider"] or "openai_compatible"),
+            "model": str(openai_compatible["model"] or args.openai_model or "").strip(),
             "output_cjk_count": int(visible_cjk_count),
             "output_cjk_ratio": round(float(visible_cjk_ratio), 6),
             "output_visible_char_count": int(visible_char_count),
             "cjk_residue_warning": cjk_residue_warning,
+            "source_output_token_overlap_ratio": round(
+                float(source_output_token_overlap_ratio), 6
+            ),
+            "source_output_trigram_jaccard": round(
+                float(source_output_trigram_jaccard), 6
+            ),
+            "copied_source_segments_total": int(copied_source_segments_total),
+            "copied_source_segments_by_page": copied_by_page,
+            "copied_source_segments_examples": copied_examples,
             "content_filter_hint_triggered_count": int(content_filter_hint_calls),
             "content_filter_hint_suppressed": bool(args.disable_content_filter_hint),
             "repetition_guard_checked_count": int(repetition_guard["checked"]),
