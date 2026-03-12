@@ -76,8 +76,10 @@ function readBackendEnvSubset() {
     "GOOGLE_TRANSLATE_API_KEY",
     "GOOGLE_TRANSLATE_BASE_URL",
     "OPENAI_API_KEY",
+    "OPENAI_BASE_URL",
     "OPENAI_MODEL",
     "GROQ_API_KEY",
+    "GROQ_BASE_URL",
     "GROQ_MODEL"
   ]);
   const raw = fs.readFileSync(envPath, "utf8");
@@ -337,8 +339,10 @@ async function main() {
       GOOGLE_TRANSLATE_API_KEY: process.env.GOOGLE_TRANSLATE_API_KEY || envSubset.GOOGLE_TRANSLATE_API_KEY || "",
       GOOGLE_TRANSLATE_BASE_URL: process.env.GOOGLE_TRANSLATE_BASE_URL || envSubset.GOOGLE_TRANSLATE_BASE_URL || "",
       OPENAI_API_KEY: process.env.OPENAI_API_KEY || envSubset.OPENAI_API_KEY || "",
+      OPENAI_BASE_URL: process.env.OPENAI_BASE_URL || envSubset.OPENAI_BASE_URL || "",
       OPENAI_MODEL: process.env.OPENAI_MODEL || envSubset.OPENAI_MODEL || "",
       GROQ_API_KEY: process.env.GROQ_API_KEY || envSubset.GROQ_API_KEY || "",
+      GROQ_BASE_URL: process.env.GROQ_BASE_URL || envSubset.GROQ_BASE_URL || "",
       GROQ_MODEL: process.env.GROQ_MODEL || envSubset.GROQ_MODEL || ""
     },
     stdio: ["ignore", "pipe", "pipe"]

@@ -107,6 +107,45 @@ function buildPythonPath(existing = "") {
   return `${babeldocPath}${sep}${existing}`;
 }
 
+function parseProviderOrder(raw = "") {
+  return String(raw || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function resolveOpenAiCompatibleRuntimeConfig(env) {
+  const providerOrder = parseProviderOrder(env.LV_MODE_B_PROVIDER_ORDER || "openai,groq");
+  const openAi = {
+    provider: "openai",
+    apiKey: String(env.OPENAI_API_KEY || "").trim(),
+    model: String(env.OPENAI_MODEL || "").trim() || "gpt-4o-mini",
+    baseUrl: String(env.OPENAI_BASE_URL || "").trim() || null
+  };
+  const groq = {
+    provider: "groq",
+    apiKey: String(env.GROQ_API_KEY || "").trim(),
+    model: String(env.GROQ_MODEL || "").trim() || "llama-3.1-8b-instant",
+    baseUrl: String(env.GROQ_BASE_URL || "").trim() || "https://api.groq.com/openai/v1"
+  };
+  const registry = {
+    openai: openAi.apiKey ? openAi : null,
+    groq: groq.apiKey ? groq : null
+  };
+
+  for (const name of providerOrder) {
+    if (registry[name]) return registry[name];
+  }
+  if (registry.openai) return registry.openai;
+  if (registry.groq) return registry.groq;
+  return {
+    provider: providerOrder[0] || "openai",
+    apiKey: "",
+    model: openAi.model,
+    baseUrl: openAi.baseUrl
+  };
+}
+
 function parseRunnerJson(stdoutText = "") {
   const raw = String(stdoutText || "");
   const lines = raw
@@ -262,11 +301,15 @@ export function createBabelDocEngine() {
           allow_source_fallback_on_repetition: allowSourceFallbackOnRepetition
         };
         const pythonCmd = process.env.LV_PDF_ENGINE_PYTHON || process.env.LV_PDF_EXTRACTOR_PYTHON || "python";
+        const translatorConfig = resolveOpenAiCompatibleRuntimeConfig(process.env);
         const runtimeEnv = {
           ...process.env,
           PYTHONIOENCODING: "utf-8",
           PYTHONUTF8: "1",
-          PYTHONPATH: buildPythonPath(process.env.PYTHONPATH || "")
+          PYTHONPATH: buildPythonPath(process.env.PYTHONPATH || ""),
+          OPENAI_API_KEY: translatorConfig.apiKey || "",
+          OPENAI_MODEL: translatorConfig.model || "gpt-4o-mini",
+          OPENAI_BASE_URL: translatorConfig.baseUrl || ""
         };
         const runtimeValidation = await validatePythonRuntime({
           pythonCmd,
@@ -288,6 +331,9 @@ export function createBabelDocEngine() {
           job_id: String(options.jobId || ""),
           request_id: String(options.requestId || ""),
           ...effectiveConfig,
+          provider: translatorConfig.provider,
+          openai_base_url: translatorConfig.baseUrl || null,
+          openai_model: translatorConfig.model || null,
           python_executable: runtimeValidation.python_executable || pythonCmd,
           python_version: runtimeValidation.python_version || null,
           required_python: runtimeValidation.required_python,
@@ -307,7 +353,7 @@ export function createBabelDocEngine() {
           "--target-lang",
           resolvedTargetLang,
           "--openai-model",
-          String(process.env.OPENAI_MODEL || "gpt-4o-mini"),
+          String(translatorConfig.model || "gpt-4o-mini"),
           "--job-id",
           String(options.jobId || "")
         ];

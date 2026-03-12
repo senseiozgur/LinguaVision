@@ -75,6 +75,55 @@ def build_parser():
     return parser
 
 
+def resolve_openai_compatible_env():
+    provider_order = [
+        part.strip().lower()
+        for part in str(os.getenv("LV_MODE_B_PROVIDER_ORDER", "openai,groq")).split(",")
+        if part.strip()
+    ]
+    openai_api_key = str(os.getenv("OPENAI_API_KEY", "")).strip()
+    openai_base_url = str(os.getenv("OPENAI_BASE_URL", "")).strip()
+    openai_model = str(os.getenv("OPENAI_MODEL", "")).strip()
+
+    groq_api_key = str(os.getenv("GROQ_API_KEY", "")).strip()
+    groq_base_url = str(os.getenv("GROQ_BASE_URL", "")).strip() or "https://api.groq.com/openai/v1"
+    groq_model = str(os.getenv("GROQ_MODEL", "")).strip() or "llama-3.1-8b-instant"
+
+    registry = {
+        "openai": {
+            "provider": "openai",
+            "api_key": openai_api_key,
+            "base_url": openai_base_url or None,
+            "model": openai_model or None,
+        }
+        if openai_api_key
+        else None,
+        "groq": {
+            "provider": "groq",
+            "api_key": groq_api_key,
+            "base_url": groq_base_url,
+            "model": groq_model,
+        }
+        if groq_api_key
+        else None,
+    }
+
+    selected = None
+    for provider_name in provider_order:
+        if registry.get(provider_name):
+            selected = registry[provider_name]
+            break
+    if selected is None:
+        selected = registry["openai"] or registry["groq"] or {
+            "provider": provider_order[0] if provider_order else "openai",
+            "api_key": "",
+            "base_url": openai_base_url or None,
+            "model": openai_model or None,
+        }
+
+    return selected
+
+
 async def run_translate(args):
     from babeldoc.format.pdf import high_level as babeldoc_high_level
     from babeldoc.docvision.doclayout import DocLayoutModel
@@ -162,12 +211,16 @@ async def run_translate(args):
     effective_config["tls_mode"] = tls_mode
     effective_config["ca_bundle_path"] = ca_bundle_path
     effective_config["insecure_tls"] = bool(insecure_tls)
+    openai_compatible = resolve_openai_compatible_env()
+    effective_config["provider"] = openai_compatible["provider"]
+    effective_config["openai_base_url"] = openai_compatible["base_url"]
+    effective_config["openai_model"] = openai_compatible["model"] or str(args.openai_model or "").strip() or None
     print(
         f"ENGINE_CONFIG {json.dumps(effective_config, ensure_ascii=False)}",
         file=sys.stderr
     )
 
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
+    api_key = openai_compatible["api_key"]
     if not api_key:
         return {"ok": False, "error": "OPENAI_API_KEY missing"}
 
@@ -184,8 +237,8 @@ async def run_translate(args):
         translator = OpenAITranslator(
             lang_in=source_lang,
             lang_out=target_lang,
-            model=args.openai_model,
-            base_url=os.getenv("OPENAI_BASE_URL") or None,
+            model=openai_compatible["model"] or args.openai_model,
+            base_url=openai_compatible["base_url"] or None,
             api_key=api_key,
             ignore_cache=True,
             enable_json_mode_if_requested=False,
@@ -531,8 +584,8 @@ async def run_translate(args):
             "page_count": int(page_count),
             "overflow_flag": False,
             "target_lang": target_lang,
-            "provider": "openai_compatible",
-            "model": str(args.openai_model or "").strip(),
+            "provider": str(openai_compatible["provider"] or "openai_compatible"),
+            "model": str(openai_compatible["model"] or args.openai_model or "").strip(),
             "output_cjk_count": int(visible_cjk_count),
             "output_cjk_ratio": round(float(visible_cjk_ratio), 6),
             "output_visible_char_count": int(visible_char_count),
