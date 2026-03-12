@@ -46,6 +46,27 @@ function detectFallback(blocks) {
   return (blocks || []).some((b) => String(b.text || "").includes("No extractable text found"));
 }
 
+function normalizeText(text = "") {
+  return String(text || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function computeSourceOutputOverlap(sourceText = "", outputText = "") {
+  const src = normalizeText(sourceText);
+  const out = normalizeText(outputText);
+  if (!src || !out) return 0;
+  const srcTokens = new Set(src.split(" ").filter(Boolean));
+  const outTokens = new Set(out.split(" ").filter(Boolean));
+  if (!srcTokens.size || !outTokens.size) return 0;
+  let intersect = 0;
+  for (const t of srcTokens) {
+    if (outTokens.has(t)) intersect += 1;
+  }
+  return intersect / Math.max(srcTokens.size, 1);
+}
+
 function readBackendEnvSubset() {
   const envPath = path.join(backendDir, ".env");
   const out = {};
@@ -223,6 +244,53 @@ function evaluateGate(result, baselineByFile) {
   return { gate: "WARN", reasons };
 }
 
+function evaluateGovernance(result, baselineByFile) {
+  const smokeReasons = [];
+  if (result.final_status !== "READY") smokeReasons.push("job_not_ready");
+  if (result.fallback_detected) smokeReasons.push("fallback_detected");
+  if (result.translation_reality_suspect) smokeReasons.push("translation_reality_suspect");
+  const smokeGate = smokeReasons.length ? "FAIL" : "PASS";
+
+  const benchmarkReasons = [];
+  if (result.overflow_flag) benchmarkReasons.push("overflow_flag_true");
+  if (result.output_page_count <= 0) benchmarkReasons.push("missing_output_pages");
+  const baseline = baselineByFile?.[result.file_name];
+  if (baseline) {
+    const denseTolerance = 3;
+    if (result.dense_over90 > Number(baseline.dense_over90 || 0) + denseTolerance) {
+      benchmarkReasons.push("dense_over90_regression");
+    }
+    const paragraphFloor = Number(baseline.paragraph_count || 0) * 0.75;
+    if (Number(baseline.paragraph_count || 0) > 0 && result.paragraph_count < paragraphFloor) {
+      benchmarkReasons.push("paragraph_count_collapse");
+    }
+    const pageDrift = Math.abs(result.output_page_count - Number(baseline.output_page_count || 0));
+    if (Number(baseline.output_page_count || 0) > 0 && pageDrift > 1) {
+      benchmarkReasons.push("page_count_drift");
+    }
+    const textBase = Number(baseline.output_text_length || 0);
+    if (textBase > 0) {
+      const ratio = result.output_text_length / textBase;
+      if (ratio < 0.65 || ratio > 1.65) benchmarkReasons.push("output_text_length_drift");
+    }
+  }
+  const benchmarkGate = benchmarkReasons.length ? "WARN" : "PASS";
+
+  const acceptanceReasons = [];
+  if (smokeGate !== "PASS") acceptanceReasons.push(...smokeReasons);
+  if (benchmarkReasons.includes("overflow_flag_true")) acceptanceReasons.push("overflow_flag_true");
+  const acceptanceGate = acceptanceReasons.length ? "FAIL" : "PASS";
+
+  return {
+    smoke_gate_status: smokeGate,
+    smoke_gate_reasons: smokeReasons,
+    benchmark_gate_status: benchmarkGate,
+    benchmark_gate_reasons: benchmarkReasons,
+    acceptance_gate_status: acceptanceGate,
+    acceptance_gate_reasons: acceptanceReasons
+  };
+}
+
 async function main() {
   const benchRoot = path.join(backendDir, "benchmark_suite");
   const outputsRoot = path.join(benchRoot, "outputs");
@@ -318,7 +386,13 @@ async function main() {
         translation_cache_hit: Boolean(run.final?.translation_cache_hit),
         job_id: run.job_id || null,
         events: (run.events || []).map((e) => e.state),
-        llm_failed_meta: getEventMeta(run.events, "LLM_TRANSLATION_FAILED")
+        llm_failed_meta: getEventMeta(run.events, "LLM_TRANSLATION_FAILED"),
+        engine_runtime_validated: Boolean(getEventMeta(run.events, "ENGINE_RUNTIME_VALIDATED")),
+        engine_runtime_invalid: Boolean(getEventMeta(run.events, "ENGINE_RUNTIME_INVALID")),
+        provider_attempt_started_count: (run.events || []).filter((e) => e.state === "PROVIDER_ATTEMPT_STARTED").length,
+        provider_attempt_finished_count: (run.events || []).filter((e) => e.state === "PROVIDER_ATTEMPT_FINISHED").length,
+        source_output_overlap_ratio: 0,
+        translation_reality_suspect: false
       };
 
       if (result.final_status === "READY" && run.job_id) {
@@ -344,12 +418,27 @@ async function main() {
           result.headings_detected = Number(outStats.headings_detected || 0);
           result.output_path = outPath;
           result.output_sample = String(outStats.sample_text || "").slice(0, 200);
+          result.source_output_overlap_ratio = Number(
+            computeSourceOutputOverlap(info.extraction_sample || "", result.output_sample || "").toFixed(4)
+          );
+          result.translation_reality_suspect =
+            result.source_output_overlap_ratio >= 0.97 &&
+            Number(result.output_text_length || 0) <= Number((outStats.text_length || 0) + 5);
         }
       }
 
       const gate = evaluateGate(result, baselineByFile);
       result.gate_status = gate.gate;
       result.gate_reasons = gate.reasons;
+      const governance = evaluateGovernance(result, baselineByFile);
+      Object.assign(result, governance);
+      result.babeldoc_site_parity = {
+        translation_reality: result.translation_reality_suspect ? "risk" : "ok",
+        page_stability: result.output_page_count > 0 ? "ok" : "risk",
+        dense_page_behavior: result.dense_over90 > 40 ? "risk" : "ok",
+        obvious_visual_breakage_risk: result.overflow_flag ? "risk" : "ok",
+        paragraph_structure_preservation: result.paragraph_count >= 1 ? "ok" : "risk"
+      };
       files.push(result);
       const perFileReport = path.join(runReportDir, `${path.parse(info.file_name).name}.metrics.json`);
       await fsp.writeFile(perFileReport, JSON.stringify(result, null, 2), "utf8");
@@ -364,7 +453,11 @@ async function main() {
       totals: {
         pass: files.filter((x) => x.gate_status === "PASS").length,
         warn: files.filter((x) => x.gate_status === "WARN").length,
-        fail: files.filter((x) => x.gate_status === "FAIL").length
+        fail: files.filter((x) => x.gate_status === "FAIL").length,
+        smoke_pass: files.filter((x) => x.smoke_gate_status === "PASS").length,
+        smoke_fail: files.filter((x) => x.smoke_gate_status === "FAIL").length,
+        acceptance_pass: files.filter((x) => x.acceptance_gate_status === "PASS").length,
+        acceptance_fail: files.filter((x) => x.acceptance_gate_status === "FAIL").length
       },
       corpus: corpusInfo
     };
